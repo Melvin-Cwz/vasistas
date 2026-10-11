@@ -17,7 +17,7 @@
   "Dossier retiré des dossiers partagés (lecteur {drive})": "Folder removed from shared folders (drive {drive})",
   "{where} · déjà visible dans Windows ({path})": "{where} · already visible in Windows ({path})",
   "{where} · sera partagé avec Windows": "{where} · will be shared with Windows",
-  "Démarrez Windows pour relier ou délier ses dossiers": "Start Windows to link or unlink its folders",
+  "Démarrez Windows pour relier ses dossiers aux dossiers Linux ou annuler ce lien": "Start Windows to link or unlink its folders",
   "Mise à jour des dossiers de Windows…": "Updating Windows folders…",
   "{name} : {error}": "{name}: {error}",
   "{names} relié(s) aux dossiers Linux. Redémarrez les applications Windows ouvertes pour appliquer ce changement": "{names} linked to Linux folders. Restart open Windows applications to apply this change",

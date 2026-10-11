@@ -431,8 +431,8 @@ class PerformancePage(Gtk.Box):
                 cfg["renderer"] = v
             vm.save_config(cfg)
         render.connect("notify::selected", on_render)
-        box.append(row(_("Moteur de rendu"), _("Choisir OpenGL si l'affichage clignote. Prend effet au prochain "
-                                               "lancement de Vasistas."), render))
+        box.append(row(_("Moteur de rendu"), _("Choisissez OpenGL si l'affichage clignote. Ce réglage prend effet au "
+                                               "prochain lancement de Vasistas."), render))
 
         keys = ["off", "auto", "always"]
         gpu = Gtk.DropDown.new_from_strings([_("Jamais"), _("Sur secteur"), _("Dès que possible")])
@@ -481,7 +481,7 @@ class PerformancePage(Gtk.Box):
             text = _("{card} : {message}", card=card_info['name'].split(' (rev')[0],
                      message=text[0].lower() + text[1:])
         if state == "helper":
-            text += " " + _("Cet assistant nécessite une installation unique avec sudo.")
+            text += " " + _("Cet utilitaire s'installe une seule fois, avec sudo.")
         if vm.gpu_active():
             text = _("La carte graphique dédiée est actuellement prêtée à Windows.")
         self.gpu_label.set_label(text)

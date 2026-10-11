@@ -43,9 +43,9 @@
   "réglage de l'application au premier plan": "setting of the app in the foreground",
   "Windows rafraîchit moins souvent l'écran et les fenêtres cachées derrière d'autres fenêtres. Adapté aux courriels et aux documents.": "Windows refreshes the screen and windows hidden behind other windows less often. Suited to email and documents.",
   "Compromis entre autonomie et fluidité : images au rythme d'un écran à 60 Hz, minuterie précise sur secteur.": "Balance between battery life and smoothness: frames at the pace of a 60 Hz display, precise timer on AC power.",
-  "Windows vise 60 images par seconde en permanence, fenêtres cachées comprises. Pour Power BI, les vidéos et les longs défilements.": "Windows aims for 60 frames per second all the time, hidden windows included. For Power BI, videos and long scrolls.",
-  "Batterie : se vide plus vite, même quand Windows ne fait rien.": "Battery: drains faster, even when Windows is idle.",
+  "Windows vise 60 images par seconde en permanence, fenêtres cachées comprises. Adapté à Power BI, aux vidéos et aux longs défilements.": "Windows aims for 60 frames per second all the time, hidden windows included. For Power BI, videos and long scrolls.",
+  "Batterie : se décharge plus vite, même lorsque Windows est inactif.": "Battery: drains faster, even when Windows is idle.",
   "4 cœurs et 6 Go : Windows utilise peu de ressources de l'ordinateur.": "4 cores and 6 GB: Windows uses few of the computer's resources.",
   "8 cœurs et 8 Go : réglage adapté à un usage courant.": "8 cores and 8 GB: suited to everyday use.",
-  "12 cœurs et 12 Go : pour Power BI et les gros classeurs.": "12 cores and 12 GB: for Power BI and big workbooks."
+  "12 cœurs et 12 Go : réglage adapté à Power BI et aux classeurs volumineux.": "12 cores and 12 GB: for Power BI and big workbooks."
 }

@@ -34,7 +34,7 @@ class InstallPage(Section):
         self.checked_once = False
         self.app_widgets = {}    # clé -> (état, bouton, liste des versions)
 
-        self.recheck = Gtk.Button(label=_("Relire l'état"))
+        self.recheck = Gtk.Button(label=_("Actualiser l'état"))
         self.recheck.set_tooltip_text(_("Vérifier dans Windows quelles applications sont déjà installées"))
         self.recheck.connect("clicked", lambda *_: self.check())
         self.get_action_area().append(self.recheck)
@@ -48,7 +48,8 @@ class InstallPage(Section):
 
     def office_section(self):
         self.header("Microsoft Office")
-        self.office_state = self.add(dim(_("État de l'installation d'Office inconnu : cliquez sur « Relire l'état ».")))
+        self.office_state = self.add(dim(_("État de l'installation d'Office inconnu : cliquez sur « Actualiser "
+                                           "l'état ».")))
 
         self.products = catalog.OFFICE_PRODUCTS
         self.product = Gtk.DropDown.new_from_strings([_(p["label"]) for p in self.products])

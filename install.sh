@@ -71,5 +71,5 @@ ls -1dt "$ROOT"/*/ 2>/dev/null | grep -v "/current/$" | tail -n +3 | while read 
 done
 
 echo "Vasistas $VERSION installé. Ouvrez « Vasistas » dans le menu Applications."
-[ "$UPDATE" = 1 ] && echo "Relancez Vasistas pour utiliser la nouvelle version ; l'agent Windows suit au prochain démarrage de Windows."
+[ "$UPDATE" = 1 ] && echo "Relancez Vasistas pour utiliser la nouvelle version ; l'agent Windows est mis à jour au prochain démarrage de Windows."
 exit 0

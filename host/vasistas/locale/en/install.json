@@ -2,7 +2,7 @@
   "Installer": "Install",
   "Installez dans Windows Microsoft Office et d'autres applications, téléchargées depuis le site de leur éditeur. Les logiciels payants nécessitent une licence.": "Install Microsoft Office and other applications in Windows, downloaded from each publisher's website. Paid software requires a license.",
   "Vérifier dans Windows quelles applications sont déjà installées": "Check in Windows which applications are already installed",
-  "État de l'installation d'Office inconnu : cliquez sur « Relire l'état ».": "Office installation status unknown: click “Read state again”.",
+  "État de l'installation d'Office inconnu : cliquez sur « Actualiser l'état ».": "Office installation status unknown: click “Read state again”.",
   "Offre": "Plan",
   "Choisissez l'offre de votre abonnement ou de votre licence. Avec une autre offre, Office s'installe mais son activation échoue.": "Choose the plan that matches your subscription or license. With a different plan, Office installs but activation fails.",
   "Version": "Version",

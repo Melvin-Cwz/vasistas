@@ -330,7 +330,7 @@ class HomePage(Gtk.Box):
             return
         winctl.set_resources(key)
         if vm.pid():
-            self.win.notify(_("Prend effet au prochain démarrage de Windows."), _("Redémarrer"),
+            self.win.notify(_("Ce réglage prend effet au prochain démarrage de Windows."), _("Redémarrer"),
                             self.win.restart_windows)
 
     def set_mode(self, i):

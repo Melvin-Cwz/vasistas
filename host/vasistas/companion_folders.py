@@ -154,7 +154,7 @@ class FoldersPage(Section):
         if not changes or self.busy:
             return
         if not guest_ready(self.win.state):
-            self.win.notify(_("Démarrez Windows pour relier ou délier ses dossiers"))
+            self.win.notify(_("Démarrez Windows pour relier ses dossiers aux dossiers Linux ou annuler ce lien"))
             GLib.idle_add(self.fill)
             return
         self.busy = True

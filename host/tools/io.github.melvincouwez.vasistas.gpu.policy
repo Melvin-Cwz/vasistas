@@ -5,7 +5,7 @@
   <vendor>Vasistas</vendor>
   <action id="io.github.melvincouwez.vasistas.gpu">
     <description>Prêter la carte graphique dédiée à Windows</description>
-    <message>Vasistas veut prêter la carte graphique dédiée à la machine virtuelle Windows</message>
+    <message>Vasistas demande l'autorisation de prêter la carte graphique dédiée à la machine virtuelle Windows</message>
     <icon_name>io.github.melvincouwez.Vasistas</icon_name>
     <defaults>
       <allow_any>no</allow_any>

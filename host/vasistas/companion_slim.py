@@ -30,12 +30,12 @@ class SlimPage(Section):
         self.status = slim.cached().get("status", {})
 
         self.header(_("Allègement"))
-        self.scan_btn = Gtk.Button(label=_("Relire l'état"))
-        self.scan_btn.set_tooltip_text(_("Lire dans Windows l'état de chaque élément"))
+        self.scan_btn = Gtk.Button(label=_("Actualiser l'état"))
+        self.scan_btn.set_tooltip_text(_("Lire de nouveau dans Windows l'état de chaque élément"))
         self.scan_btn.connect("clicked", lambda *_: self.scan())
         self.get_action_area().append(self.scan_btn)
-        self.add(dim(_("Retirer de Windows les éléments inutiles dans Vasistas, pour réduire l'utilisation de la "
-                       "mémoire et du processeur.")))
+        self.add(dim(_("Retirer de Windows les éléments qui ne servent pas avec Vasistas, pour réduire l'utilisation "
+                       "de la mémoire et du processeur.")))
         self.measure = self.add(Gtk.Label(xalign=0, wrap=True))
         self.baseline = self.add(dim(""))
 
@@ -48,8 +48,8 @@ class SlimPage(Section):
         lv = Gtk.Box(spacing=6)
         lv.append(drop)
         lv.append(go)
-        self.add(row(_("Niveau"), _("Léger : collecte de données et publicité. Fort : ajoute les services et "
-                                    "applications inutiles dans Vasistas."), lv))
+        self.add(row(_("Niveau"), _("Léger : retire la collecte de données et la publicité. Fort : retire aussi les "
+                                    "services et les applications qui ne servent pas avec Vasistas."), lv))
 
         # détail : chaque élément, à cocher un par un
         detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=6)
@@ -72,7 +72,7 @@ class SlimPage(Section):
                                            else _(". Suppression définitive : réinstallation possible depuis le "
                                                   "Store ou en revenant au point de restauration"))
                 if it["level"] == 3:
-                    sub += _(". Expérimental : pas encore vérifié, créez un point de restauration avant")
+                    sub += _(". Expérimental : réglage pas encore vérifié, créez d'abord un point de restauration")
                 r = row(_(it["title"]), sub, end)
                 r.set_margin_start(6)
                 r.set_margin_end(6)
@@ -108,7 +108,8 @@ class SlimPage(Section):
         c = slim.cached()
         last = _fmt_measure(c.get("last"))
         self.measure.set_label(_("Windows utilise {measure}", measure=last) if last
-                               else _("Cliquez sur « Relire l'état » pour lire l'état dans Windows."))
+                               else _("Cliquez sur « Actualiser l'état » pour lire l'état de chaque élément dans "
+                                      "Windows."))
         base = _fmt_measure(c.get("baseline"))
         self.baseline.set_label(_("Avant allègement : {measure}", measure=base) if base and c.get("status") and
                                 any(v != "off" for v in c["status"].values()) else "")
@@ -207,6 +208,6 @@ class SlimPage(Section):
             return out
 
         def done(r):
-            return _("Allègement terminé. Redémarrez Windows pour finaliser.") if r.get("reboot") else \
+            return _("Allègement terminé. Redémarrez Windows pour terminer.") if r.get("reboot") else \
                 _("Allègement terminé. Certains réglages prennent effet au prochain démarrage de Windows.")
         self._work(_("Allègement en cours…"), fn, done)

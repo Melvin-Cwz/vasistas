@@ -122,7 +122,7 @@ class BrowserPage(Section):
                 else:
                     self.win.notify(_("Réglage enregistré et transmis immédiatement à l'extension"))
             drop.connect("notify::selected", on)
-            sub = _("Outlook de bureau s'ouvre sans le message cliqué") if app == "outlook" else ""
+            sub = _("Outlook de bureau s'ouvre sans afficher le message cliqué") if app == "outlook" else ""
             r = row(name, sub, drop)
             r.set_margin_start(6)
             r.set_margin_end(6)

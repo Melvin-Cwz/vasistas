@@ -147,8 +147,8 @@ def _names(names):
 VERSIONS = [
     {
         "key": "win11", "label": "Windows 11 (25H2)",
-        "description": N_("Version actuelle, toutes les éditions grand public (Famille, Professionnel, "
-                          "Éducation…). S'active avec votre licence."),
+        "description": N_("Version actuelle, toutes les éditions grand public (Famille, Professionnel, Éducation…). "
+                          "Cette version s'active avec votre licence."),
         "method": "page", "page": "windows11",
         "arch": ["x64"], "languages": list(LANGUAGES), "eval": False, "needs_key": True,
         "editions": CONSUMER_EDITIONS, "default": True,
@@ -191,8 +191,8 @@ VERSIONS = [
         "method": "page", "page": "windows10ISO",
         "arch": ["x64", "x86"], "languages": list(LANGUAGES), "eval": False, "needs_key": True,
         "editions": CONSUMER_EDITIONS, "end_of_support": "2025-10-14",
-        "note": N_("Support terminé le 14 octobre 2025 : plus de mises à jour de sécurité sans le "
-                   "programme payant ESU. Mêmes clés génériques que Windows 11."),
+        "note": N_("Support terminé le 14 octobre 2025 : Windows 10 ne reçoit plus de mises à jour de sécurité sans "
+                   "le programme payant ESU. Mêmes clés génériques que Windows 11."),
     },
 ]
 DEFAULT_VERSION = "win11"
@@ -410,7 +410,7 @@ def _refresh_eval(v):
     status, _h, body = s.request(EVAL_PAGE.format(loc="en-us", page=v["page"]))
     found = _parse_eval_page(body.decode("utf-8", "replace") if status == 200 else "")
     if not found:
-        raise DownloadError(_("page de l'Evaluation Center illisible"))
+        raise DownloadError(_("impossible de lire la page de l'Evaluation Center"))
     EVAL_LINKS.update(found)
     return found
 

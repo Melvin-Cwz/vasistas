@@ -11,7 +11,7 @@
   "Ouvrir les documents dans": "Open documents in",
   "Lucarne n'a pas pu enregistrer le réglage": "Lucarne could not save the setting",
   "Réglage enregistré et transmis immédiatement à l'extension": "Setting saved and sent to the extension immediately",
-  "Outlook de bureau s'ouvre sans le message cliqué": "Desktop Outlook opens without the clicked message",
+  "Outlook de bureau s'ouvre sans afficher le message cliqué": "Desktop Outlook opens without the clicked message",
   "Office de Windows reçoit l'adresse du fichier lui-même : l'extension retrouve cette adresse grâce à votre session SharePoint dans Chrome.": "Office in Windows receives the address of the file itself: the extension finds this address using your SharePoint session in Chrome.",
   "Derniers liens": "Recent links",
   "ouvert en fichier": "opened as a file",

@@ -1,9 +1,9 @@
 """Version de Vasistas et adresses du projet."""
 
-VERSION = "0.9.3"
+VERSION = "0.9.4"
 # version expérimentale : les mises à jour proposées incluent les préversions GitHub
 PRERELEASE = True
-GITHUB_REPO = "melvincouwez-alt/vasistas"
+GITHUB_REPO = "Melvin-Cwz/vasistas"
 WEBSITE = f"https://github.com/{GITHUB_REPO}"
 ISSUES = f"{WEBSITE}/issues"
 

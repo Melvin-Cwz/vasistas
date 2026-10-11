@@ -27,9 +27,9 @@ class PrintersPage(Section):
         sw = Gtk.Switch(active=printers.enabled())
         sw.connect("notify::active", self.on_switch)
         self.add(row(_("Partager les imprimantes avec Windows"),
-                     _("Chaque imprimante de Linux apparaît dans Windows sous son nom suivi de "
-                       "« (Linux) ». Linux garde les pilotes et les réglages ; rien n'est ouvert au "
-                       "réseau. S'applique au prochain démarrage de Windows."), sw))
+                     _("Chaque imprimante de Linux apparaît dans Windows sous son nom suivi de « (Linux) ». Linux "
+                       "conserve les pilotes et les réglages, et aucun accès n'est ouvert sur le réseau. Ce réglage "
+                       "s'applique au prochain démarrage de Windows."), sw))
         self.hint = self.add(dim(""))
         self.header(_("Imprimantes de Linux"))
         self.list = self.add(card())
@@ -67,7 +67,7 @@ class PrintersPage(Section):
         if not items:
             text = _("Aucune imprimante ajoutée dans les Paramètres de Linux.")
             if found:
-                text += " " + _("Détectées sur le réseau sans être ajoutées : {names}.", names=", ".join(found))
+                text += " " + _("Imprimantes détectées sur le réseau mais non ajoutées : {names}.", names=", ".join(found))
             self.list.append(Gtk.Label(label=text, wrap=True, margin_top=8, margin_bottom=8,
                                        margin_start=6, margin_end=6))
         for p in items:

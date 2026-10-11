@@ -47,8 +47,8 @@ class SettingsPage(Page):
         ind = Gtk.Switch(active=indicator.enabled())
         ind.connect("notify::active", lambda sw, _p: indicator.set_enabled(sw.get_active()))
         self.add(row(_("Indicateur dans le panneau"),
-                     _("Affiche en haut de l'écran l'état de Windows, les applications récentes et les commandes de "
-                       "Windows."), ind))
+                     _("Vasistas affiche en haut de l'écran l'état de Windows, les applications récentes et les "
+                       "commandes de Windows."), ind))
 
         self.header(_("Apparence"))
         themes = [None, "light", "dark"]
@@ -67,7 +67,7 @@ class SettingsPage(Page):
 
         def on_lang(i):
             set_config("language", values[i])
-            self.win.notify(_("La langue change à la prochaine ouverture de Vasistas."))
+            self.win.notify(_("La nouvelle langue s'applique à la prochaine ouverture de Vasistas."))
         self.add(row(_("Langue de Vasistas"),
                      _("Automatique : langue du système. La langue de Windows est choisie lors de l'installation de "
                        "Windows."),
@@ -77,7 +77,7 @@ class SettingsPage(Page):
         self.header(_("Mises à jour de Vasistas"))
         upd = Gtk.Switch(active=cfg.get("check_updates", True) is not False)
         upd.connect("notify::active", lambda sw, _p: save("check_updates", sw.get_active()))
-        self.add(row(_("Prévenir quand une nouvelle version sort"),
+        self.add(row(_("Prévenir lorsqu'une nouvelle version est disponible"),
                      _("Vasistas vérifie au plus une fois par jour si une nouvelle version est disponible."), upd))
         now = Gtk.Button(label=_("Rechercher maintenant"), halign=Gtk.Align.START)
         now.connect("clicked", lambda *_a: self.win.get_application().show_updates())
@@ -141,7 +141,7 @@ class ExperimentalSection(Section):
             Gio.File.new_for_path(str(desktop.HOST_DIR.parent / "docs" / "pilote-maison.md"))).launch(
             self.get_root(), None, None))
         self.add(row(_("Pilote d'écran modifié"),
-                     _("Pilote modifié qui fournit à Windows la cadence d'un écran physique à 60 Hz, pour des images "
+                     _("Ce pilote modifié fournit à Windows la cadence d'un écran physique à 60 Hz, pour des images "
                        "plus régulières. Ce pilote nécessite le mode test de Windows. Risque : écran noir, réparable "
                        "en revenant à un point de restauration.") + " " + state, notice))
 
@@ -152,8 +152,8 @@ class AboutPage(Page):
 
     def __init__(self, win):
         super().__init__(APP_ID, _("À propos"),
-                         _("Les applications Windows d'une machine virtuelle, une fenêtre chacune, sur le "
-                           "bureau Linux. Sans bureau à distance (RDP)."), two_columns=True)
+                         _("Les applications Windows d'une machine virtuelle, chacune dans sa propre fenêtre sur le "
+                           "bureau Linux, sans bureau à distance (RDP)."), two_columns=True)
         self.win = win
         from . import updates
         mode = {"dev": _("Version de développement (dépôt git)"), "installed": _("Version installée"),
@@ -182,7 +182,7 @@ class AboutPage(Page):
             b = Gtk.LinkButton(uri=url, label=label)
             links.append(b)
         self.add(links)
-        self.add(dim(_("© 2026 melvincouwez-alt. Windows, Office et Power BI sont des marques de "
+        self.add(dim(_("© 2026 MelvinCwz. Windows, Office et Power BI sont des marques de "
                        "Microsoft ; Vasistas n'est ni affilié à Microsoft ni approuvé par lui.")))
         whatsnew = Gtk.Button(label=_("Quoi de neuf"))
         whatsnew.connect("clicked", lambda *_a: self.win.get_application().show_whatsnew())

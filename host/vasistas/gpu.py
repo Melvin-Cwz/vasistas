@@ -34,7 +34,7 @@ MESSAGES = {
     "iommu": N_("L'IOMMU n'est pas actif : activez AMD-Vi / VT-d dans le BIOS."),
     "group": N_("La carte graphique dédiée partage son groupe IOMMU avec d'autres périphériques : impossible de la "
                 "prêter seule à Windows."),
-    "helper": N_("L'assistant système n'est pas installé."),
+    "helper": N_("L'utilitaire système de Vasistas n'est pas installé."),
     "screens": N_("Un écran externe est branché sur la carte graphique dédiée : la carte ne peut "
                   "pas être prêtée à Windows tant que cet écran l'utilise."),
     "busy": N_("La carte graphique dédiée est utilisée par une application Linux."),

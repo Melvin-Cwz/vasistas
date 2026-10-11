@@ -38,20 +38,21 @@ class KeyboardPage(Section):
         sw.connect("notify::active", lambda s, _p: _save("super_to_windows", s.get_active()))
         self.add(row(_("Touche Super envoyée à Windows"),
                      _("Dans une fenêtre Windows, la touche Super ouvre le menu Démarrer de Windows et ses "
-                       "raccourcis (Super+E, Super+V…) sont envoyés à Windows. Désactivé : la touche Super reste "
-                       "au bureau Linux."), sw))
+                       "raccourcis (Super+E, Super+V…) sont envoyés à Windows. Option désactivée : la touche Super "
+                       "reste réservée au bureau Linux."), sw))
         at = Gtk.Switch(active=alt_tab)
         at.connect("notify::active", lambda s, _p: _save("alt_tab_windows", s.get_active()))
         self.add(row(_("Alt+Tab dans Windows"),
-                     _("Dans une fenêtre Windows, Alt+Tab passe d'une fenêtre Windows à l'autre. Désactivé : "
+                     _("Dans une fenêtre Windows, Alt+Tab passe d'une fenêtre Windows à l'autre. Option désactivée : "
                        "Alt+Tab est géré par le bureau et parcourt toutes les fenêtres."), at))
-        self.add(dim(_("Le bureau demande votre autorisation la première fois, pour chaque fenêtre "
-                       "Windows. Super+Échap rend à tout moment les raccourcis au bureau. S'applique "
-                       "à la prochaine fenêtre Windows activée.")))
+        self.add(dim(_("Le bureau demande votre autorisation la première fois, pour chaque fenêtre Windows. "
+                       "Super+Échap rend à tout moment les raccourcis au bureau. Ces réglages s'appliquent à la "
+                       "prochaine fenêtre Windows activée.")))
 
         self.header(_("Raccourcis réservés au bureau"))
-        self.add(dim(_("Jamais envoyés à Windows. Quand Windows reçoit les raccourcis du système, le premier appui "
-                       "rend les raccourcis au bureau et le second déclenche le raccourci.")))
+        self.add(dim(_("Ces raccourcis ne sont jamais envoyés à Windows. Lorsque Windows reçoit les raccourcis du "
+                       "système, un premier appui rend les raccourcis au bureau et un second appui déclenche le "
+                       "raccourci.")))
         self.list = self.add(card())
         add_box = Gtk.Box(spacing=6)
         self.entry = Gtk.Entry(placeholder_text="<Super>Left", hexpand=True)

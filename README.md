@@ -169,8 +169,8 @@ activer avec votre propre clé (Paramètres, Système, Activation).
 Téléchargez `vasistas-<version>.tar.gz` depuis la dernière version publiée, puis lancez :
 
 ```
-tar xf vasistas-0.9.3.tar.gz
-cd vasistas-0.9.3
+tar xf vasistas-0.9.4.tar.gz
+cd vasistas-0.9.4
 ./install.sh
 ```
 
@@ -198,7 +198,7 @@ vasistas companion                     # l'application Vasistas
 
 ## Avec Lucarne
 
-[Lucarne](https://github.com/melvincouwez-alt/lucarne) est un projet distinct qui ouvre les
+[Lucarne](https://github.com/Melvin-Cwz/lucarne) est un projet distinct qui ouvre les
 applications web de Microsoft 365 dans des fenêtres du bureau. Les deux projets ne partagent
 pas de code et fonctionnent chacun seul. Quand les deux sont installés, ils communiquent
 uniquement par leurs commandes, cherchées dans `PATH` au besoin :

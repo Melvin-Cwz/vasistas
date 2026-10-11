@@ -57,8 +57,8 @@ class AppsPage(Section):
         sw_suffix = Gtk.Switch(active=suffix)
         sw_suffix.connect("notify::active", lambda s, _p: self.set_launcher_option("launcher_suffix", s.get_active()))
         box.append(row(_("Préciser « (Windows) » dans le nom"),
-                       _("« Word (Windows) » au lieu de « Word » dans le menu Applications et le dock, "
-                         "pour les distinguer des applications Linux du même nom."), sw_suffix))
+                       _("Le menu Applications et le dock affichent « Word (Windows) » au lieu de « Word », pour "
+                         "distinguer les applications Windows des applications Linux du même nom."), sw_suffix))
         sw_emblem = Gtk.Switch(active=emblem)
         sw_emblem.connect("notify::active", lambda s, _p: self.set_launcher_option("launcher_emblem", s.get_active()))
         box.append(row(_("Emblème Vasistas sur les icônes"),

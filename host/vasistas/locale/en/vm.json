@@ -3,7 +3,7 @@
   "installation de Windows : la fenêtre QEMU se ferme automatiquement à la fin": "installing Windows: the QEMU window closes automatically when done",
   "QEMU terminé (code {rc})": "QEMU finished (code {rc})",
   "{disk} (lancer `vasistas vm install`)": "{disk} (run `vasistas vm install`)",
-  "la VM tourne déjà": "the VM is already running",
+  "la VM est déjà en marche": "the VM is already running",
   "{disk} existe déjà (--force pour réinstaller)": "{disk} already exists (--force to reinstall)",
   "arrêtée": "stopped",
   "non installée": "not installed",

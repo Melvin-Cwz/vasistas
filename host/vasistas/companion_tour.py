@@ -15,9 +15,9 @@ TOUR = [
         "son icône dans le dock. Un double-clic sur un document Word ou Excel ouvre également ce document dans "
         "Windows.")),
     ("folder", N_("Où sont mes fichiers ?"),
-     N_("Windows voit vos dossiers Documents et Téléchargements de Linux comme des lecteurs. Les documents enregistrés "
-        "dans ces dossiers restent stockés sous Linux, même si Windows revient à un point de restauration. La page "
-        "Fichiers permet de partager d'autres dossiers avec Windows.")),
+     N_("Windows affiche vos dossiers Linux Documents et Téléchargements comme des lecteurs. Les documents "
+        "enregistrés dans ces dossiers restent stockés sous Linux, même si Windows revient à un point de "
+        "restauration. La page Fichiers permet de partager d'autres dossiers avec Windows.")),
     ("video-display", N_("L'indicateur et les affichages"),
      N_("L'icône de Vasistas dans le panneau indique si Windows est en marche ou en veille. Si une fenêtre s'affiche "
         "mal après un changement d'écran, choisissez « Réinitialiser les affichages » dans le menu de cette icône : "
@@ -115,7 +115,7 @@ class WhatsNewWindow(Gtk.Window):
                 row.append(Gtk.Label(label=p, xalign=0, wrap=True, hexpand=True, selectable=True))
                 box.append(row)
         if not items:
-            box.append(Gtk.Label(label=_("Rien de neuf pour cette version."), xalign=0))
+            box.append(Gtk.Label(label=_("Aucune nouveauté pour cette version."), xalign=0))
         scroll = Gtk.ScrolledWindow(child=box, vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         ok = Gtk.Button(label=_("Fermer"), halign=Gtk.Align.END, margin_end=24, margin_bottom=18, margin_top=6)
         ok.add_css_class(Granite.STYLE_CLASS_SUGGESTED_ACTION)

@@ -2,7 +2,7 @@
   "Applications": "Applications",
   "Lanceurs": "Launchers",
   "Préciser « (Windows) » dans le nom": "Add “(Windows)” to the name",
-  "« Word (Windows) » au lieu de « Word » dans le menu Applications et le dock, pour les distinguer des applications Linux du même nom.": "“Word (Windows)” instead of “Word” in the Applications menu and the dock, to tell them apart from Linux applications with the same name.",
+  "Le menu Applications et le dock affichent « Word (Windows) » au lieu de « Word », pour distinguer les applications Windows des applications Linux du même nom.": "“Word (Windows)” instead of “Word” in the Applications menu and the dock, to tell them apart from Linux applications with the same name.",
   "Emblème Vasistas sur les icônes": "Vasistas emblem on icons",
   "Vasistas ajoute son logo en bas à droite des icônes des applications Windows.": "Vasistas adds its logo to the bottom right corner of Windows application icons.",
   "Lanceurs mis à jour": "Launchers updated",

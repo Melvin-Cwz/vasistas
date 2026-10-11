@@ -1,4 +1,16 @@
 {
+  "0.9.4": {
+    "fr": [
+      "Relecture des textes français de l'application et de la documentation.",
+      "Le crédit de la licence MIT et de la page À propos est désormais au nom de MelvinCwz.",
+      "Le projet a une nouvelle adresse GitHub : https://github.com/Melvin-Cwz/vasistas. Vasistas y recherche désormais les mises à jour ; l'ancienne adresse redirige vers la nouvelle."
+    ],
+    "en": [
+      "French texts of the application and documentation proofread.",
+      "The MIT licence and About page credit is now in the name of MelvinCwz.",
+      "The project has a new GitHub address: https://github.com/Melvin-Cwz/vasistas. Vasistas now checks for updates there; the old address redirects to the new one."
+    ]
+  },
   "0.9.3": {
     "fr": [
       "Les icônes du panneau reprennent le dessin de la fenêtre à vasistas, comme l'icône de l'application.",
@@ -16,9 +28,9 @@
   "0.9.2": {
     "fr": [
       "Windows 11 et Windows 10 sous licence : l'assistant ouvre la page officielle de Microsoft dans votre navigateur, puis vous choisissez le fichier ISO téléchargé. Vasistas ne passe plus par l'interface interne du site de Microsoft. Les versions d'évaluation se téléchargent toujours directement, par les liens publics de Microsoft.",
-      "Quand le nom du fichier ISO choisi indique la version et la langue (par exemple Win11_25H2_French_x64.iso), l'assistant le reconnaît.",
+      "Lorsque le nom du fichier ISO choisi indique la version et la langue (par exemple Win11_25H2_French_x64.iso), l'assistant reconnaît ces informations.",
       "Correctif : à l'ouverture de l'assistant, la langue de Windows déjà choisie n'est plus remplacée par la première de la liste (allemand).",
-      "Textes de licence plus clairs : la clé générique publiée par Microsoft choisit seulement l'édition à l'installation, il faut votre propre licence pour activer Windows.",
+      "Textes de licence plus clairs : la clé générique publiée par Microsoft sert seulement à choisir l'édition pendant l'installation ; votre propre licence est nécessaire pour activer Windows.",
       "Page du projet, documentation et notes de version en français."
     ],
     "en": [
@@ -44,15 +56,15 @@
       "Vasistas 0.9 (bêta) réunit tout le travail fait depuis la 0.5.2 : application entièrement redessinée, pages principales dans la barre de titre, le reste dans le menu.",
       "Accueil en tableau de bord : état de Windows et ses commandes, applications ouvertes avec leur mode d'affichage, écran de Windows en direct, niveau de performance réglable en un clic et raccourcis.",
       "Performances : un seul curseur à trois modes (Optimisé, Équilibré, Fluide), chacun expliqué, et des modes réservés à une application tant qu'elle est au premier plan. Power BI est en Fluide par défaut.",
-      "Affichage plus fluide : les fenêtres recouvertes sont capturées par Windows.Graphics.Capture, seules les zones changées sont copiées et compressées en zstd. Minuterie de Windows à 1 ms sur secteur, rendu Vulkan sous Linux.",
-      "Écrans et fenêtres : chaque application s'ouvre sur l'écran de votre choix, sa taille est retenue pour chaque combinaison d'écrans, aucune fenêtre ne dépasse son écran, et « Réinitialiser les affichages » remet tout en place.",
-      "Indicateur dans le panneau : état de Windows, applications récentes et gestes courants.",
-      "Windows suit le bureau : thème clair ou sombre, couleur d'accent, lissage des polices. Ses notifications arrivent sur le bureau et les icônes de sa zone de notification dans le panneau.",
-      "Imprimantes Linux disponibles dans Windows ; la touche Super et Alt+Tab peuvent aller à Windows.",
-      "Puissance adaptée : moins sur batterie, plus pour les applications lourdes ; arrêt automatique sans fenêtre ouverte, démarrage en veille.",
-      "Onglet Restauration : point avant l'allègement et, si vous l'activez, avant Windows Update et avant chaque installation ; retour en un clic.",
+      "Affichage plus fluide : les fenêtres recouvertes sont capturées par Windows.Graphics.Capture, seules les zones modifiées sont copiées et compressées en zstd. Minuterie de Windows à 1 ms sur secteur, rendu Vulkan sous Linux.",
+      "Écrans et fenêtres : chaque application s'ouvre sur l'écran de votre choix, Vasistas mémorise sa taille pour chaque combinaison d'écrans, aucune fenêtre ne dépasse son écran, et « Réinitialiser les affichages » remet toutes les fenêtres en place.",
+      "Indicateur dans le panneau : état de Windows, applications récentes et actions courantes.",
+      "Windows suit le bureau : thème clair ou sombre, couleur d'accent, lissage des polices. Les notifications de Windows s'affichent sur le bureau, et les icônes de sa zone de notification dans le panneau.",
+      "Imprimantes Linux disponibles dans Windows ; la touche Super et Alt+Tab peuvent être envoyés à Windows.",
+      "Puissance adaptée : Windows dispose de moins de ressources sur batterie et de davantage pour les applications exigeantes ; arrêt automatique sans fenêtre ouverte et démarrage en veille.",
+      "Onglet Restauration : point de restauration avant l'allègement et, si vous activez l'option, avant Windows Update et avant chaque installation ; retour à un point en un clic.",
       "Diagnostic avec réparations et rapport sans données personnelles ; visite guidée et bouton « ? » sur chaque page.",
-      "Pilote d'écran maison (expérimental, à poser soi-même) : un vrai rythme de 60 images par seconde pour Windows, coupé quand l'ordinateur est sur batterie. Une notice explique ce qu'il fait et comment revenir en arrière.",
+      "Pilote d'écran modifié (expérimental, à installer manuellement) : Windows reçoit une vraie cadence de 60 images par seconde, désactivée lorsque l'ordinateur est sur batterie. Une notice explique le fonctionnement du pilote et la façon de revenir en arrière.",
       "Interface en français et en anglais."
     ],
     "en": [

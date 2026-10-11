@@ -44,19 +44,20 @@ class ScreensPage(Section):
 
     def __init__(self, win):
         super().__init__("preferences-desktop-display", _("Écrans et fenêtres"),
-                         _("Écran d'ouverture de chaque application, taille des fenêtres"))
+                         _("Écran d'ouverture de chaque application et taille des fenêtres"))
         self.win = win
         reset = Gtk.Button(label=_("Réinitialiser les affichages"))
         reset.add_css_class(Granite.STYLE_CLASS_SUGGESTED_ACTION)
-        reset.set_tooltip_text(_("Toutes les fenêtres Windows sont ramenées à 80 % de leur écran au maximum et centrées. "
-                                 "Aucune fenêtre n'est fermée."))
+        reset.set_tooltip_text(_("Vasistas réduit chaque fenêtre Windows à 80 % de son écran au maximum, puis la "
+                                 "centre. Aucune fenêtre n'est fermée."))
         reset.connect("clicked", lambda *_: self.reset())
         self.get_action_area().append(reset)
 
         self.header(_("Écran d'ouverture"))
         self.default_box = Gtk.Box()
-        self.add(row(_("Par défaut"), _("S'applique aux applications sans réglage particulier. « Écran actif » : "
-                                        "l'écran sur lequel vous travaillez, comme pour les applications Linux."),
+        self.add(row(_("Par défaut"), _("Ce réglage s'applique aux applications qui n'ont pas de réglage "
+                                        "particulier. « Écran actif » désigne l'écran sur lequel vous travaillez, "
+                                        "comme pour les applications Linux."),
                      self.default_box))
         self.apps_list = self.add(card())
         self.add(dim(_("Si l'écran choisi n'est pas branché, la fenêtre s'ouvre sur l'écran actif.")))
@@ -66,19 +67,20 @@ class ScreensPage(Section):
         clamp = Gtk.Switch(active=s["clamp"])
         clamp.connect("notify::active", lambda sw, _p: self.save(clamp=sw.get_active()))
         self.add(row(_("Jamais plus grande que l'écran"),
-                     _("Une fenêtre trop grande pour l'écran où elle s'ouvre est réduite à 90 % de l'écran."),
+                     _("Vasistas réduit à 90 % de l'écran une fenêtre trop grande pour l'écran sur lequel elle "
+                       "s'ouvre."),
                      clamp))
         auto = Gtk.Switch(active=s["reset_on_change"])
         auto.connect("notify::active", lambda sw, _p: self.save(reset_on_change=sw.get_active()))
         self.add(row(_("Remettre en place au branchement d'un écran"),
-                     _("Quand un écran est branché ou débranché, les fenêtres sont recentrées comme avec "
+                     _("Lorsqu'un écran est branché ou débranché, Vasistas recentre les fenêtres comme le fait "
                        "« Réinitialiser les affichages »."), auto))
         forget = Gtk.Button(label=_("Effacer"))
         forget.connect("clicked", lambda *_a: (placement.forget_all(),
                                               self.win.notify(_("Tailles et écrans mémorisés effacés."))))
         self.add(row(_("Tailles mémorisées"),
-                     _("Vasistas retient l'écran et la taille de chaque application pour chaque "
-                       "combinaison d'écrans (portable seul, portable et écran externe…)."), forget))
+                     _("Vasistas mémorise l'écran et la taille de chaque application pour chaque combinaison "
+                       "d'écrans (portable seul, portable et écran externe…)."), forget))
 
         monitors = Gdk.Display.get_default().get_monitors()
         monitors.connect("items-changed", lambda *_: self.fill())
@@ -90,7 +92,7 @@ class ScreensPage(Section):
 
     def choices(self, with_default):
         """[(valeur, libellé)] : écran actif, dernier écran, puis chaque écran branché."""
-        out = [(None, _("Comme par défaut"))] if with_default else []
+        out = [(None, _("Réglage par défaut"))] if with_default else []
         out += [(placement.AUTO, _("Écran actif")), (placement.LAST, _("Dernier écran utilisé"))]
         for monitor in placement.gdk_monitors():
             out.append((monitor.get_connector(), placement.label(monitor)))
@@ -166,8 +168,8 @@ class IntegrationPage(Section):
         theme = Gtk.Switch(active=cfg.get("win_theme", True) is not False)
         theme.connect("notify::active", lambda sw, _p: set_config("win_theme", sw.get_active()))
         self.add(row(_("Windows suit le style du bureau"),
-                     _("Le mode sombre et la couleur d'accent d'elementary sont appliqués aux applications Windows "
-                       "dès qu'ils sont modifiés dans les Paramètres."), theme))
+                     _("Vasistas applique le mode sombre et la couleur d'accent d'elementary OS aux applications "
+                       "Windows dès qu'ils sont modifiés dans les Paramètres."), theme))
         smoothing = cfg.get("font_smoothing", "auto")
         labels = [_("Ne pas modifier"), _("Niveaux de gris, comme Linux"), _("ClearType")]
         self.add(row(_("Lissage des polices"),
@@ -179,8 +181,9 @@ class IntegrationPage(Section):
         notes = Gtk.Switch(active=cfg.get("win_notifications", True) is not False)
         notes.connect("notify::active", lambda sw, _p: set_config("win_notifications", sw.get_active()))
         self.add(row(_("Notifications de Windows sur le bureau"),
-                     _("Les bannières d'Outlook, de Teams ou des mises à jour deviennent des notifications "
-                       "du bureau. Cliquer dessus ouvre l'application sur le message."), notes))
+                     _("Vasistas affiche les bannières d'Outlook, de Teams et des mises à jour de Windows comme des "
+                       "notifications du bureau. Un clic sur une notification ouvre l'application concernée sur le "
+                       "message."), notes))
         tray = Gtk.Switch(active=cfg.get("win_tray", True) is not False)
         tray.connect("notify::active", lambda sw, _p: set_config("win_tray", sw.get_active()))
         self.add(row(_("Icônes de la zone de notification"),

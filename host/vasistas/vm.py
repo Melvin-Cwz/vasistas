@@ -484,7 +484,7 @@ def _check_files(install: bool):
 def install(force=False):
     _check_files(True)
     if pid():
-        raise SystemExit(_("la VM tourne déjà"))
+        raise SystemExit(_("la VM est déjà en marche"))
     if DISK.exists() and not force:
         raise SystemExit(_("{disk} existe déjà (--force pour réinstaller)", disk=DISK))
     load_config()

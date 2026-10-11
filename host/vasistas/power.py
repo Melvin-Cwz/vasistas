@@ -103,9 +103,9 @@ MODES = [
      {"timer": "auto", "vsync": 7, "occluded_ms": None},
      None),
     ("smooth", N_("Fluide"),
-     N_("Windows vise 60 images par seconde en permanence, fenêtres cachées comprises. Pour "
-        "Power BI, les vidéos et les longs défilements."),
-     N_("Batterie : se vide plus vite, même quand Windows ne fait rien."),
+     N_("Windows vise 60 images par seconde en permanence, fenêtres cachées comprises. Adapté à Power BI, aux vidéos "
+        "et aux longs défilements."),
+     N_("Batterie : se décharge plus vite, même lorsque Windows est inactif."),
      N_("Performances : les meilleures."),
      {"timer": "always", "vsync": 7, "occluded_ms": 250},
      "performance"),
@@ -114,7 +114,8 @@ MODES = [
 MACHINE = [
     ("battery", N_("Économie"), N_("4 cœurs et 6 Go : Windows utilise peu de ressources de l'ordinateur.")),
     ("balanced", N_("Équilibré"), N_("8 cœurs et 8 Go : réglage adapté à un usage courant.")),
-    ("performance", N_("Performances"), N_("12 cœurs et 12 Go : pour Power BI et les gros classeurs.")),
+    ("performance", N_("Performances"), N_("12 cœurs et 12 Go : réglage adapté à Power BI et aux classeurs "
+                                           "volumineux.")),
 ]
 PRESET_DEFAULTS = {"timer": "auto", "vsync": VSYNC_DEFAULT, "occluded_ms": None}
 # réglages qui ne prennent effet qu'au prochain démarrage de Windows

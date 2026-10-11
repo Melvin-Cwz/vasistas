@@ -59,8 +59,8 @@ class GeneralSection(Section):
             vm.save_config(c)
         snd.connect("notify::active", on_snd)
         self.add(row(_("Son de Windows"),
-                     _("Haut-parleurs et microphone. Le microphone n'est capté que lorsqu'une application Windows "
-                       "l'utilise. Le changement s'applique au prochain démarrage de Windows."), snd))
+                     _("Haut-parleurs et microphone. Le microphone est activé uniquement lorsqu'une application "
+                       "Windows l'utilise. Ce réglage s'applique au prochain démarrage de Windows."), snd))
 
     def update(self, state):
         self.state = state
@@ -70,12 +70,12 @@ class GeneralSection(Section):
         import time
         t = vm.load_config().get("last_windows_update")
         if not t:
-            self.wu_label.set_label(_("Mises à jour jamais lancées depuis Vasistas."))
+            self.wu_label.set_label(_("Les mises à jour de Windows n'ont jamais été lancées depuis Vasistas."))
             return
         days = int((time.time() - t) / 86400)
-        txt = _("Dernière fois : aujourd'hui.") if days == 0 else \
-            _("Dernière fois : il y a 1 jour.") if days == 1 else \
-            _("Dernière fois : il y a {n} jours.", n=days)
+        txt = _("Dernier lancement : aujourd'hui.") if days == 0 else \
+            _("Dernier lancement : il y a 1 jour.") if days == 1 else \
+            _("Dernier lancement : il y a {n} jours.", n=days)
         if days > 30:
             txt += " " + _("Les dernières mises à jour datent de plus d'un mois : lancez les mises à jour de "
                            "Windows.")
@@ -83,7 +83,7 @@ class GeneralSection(Section):
 
     def windows_update(self):
         if not guest_ready(self.state):
-            self.win.notify(_("Démarrez Windows d'abord"))
+            self.win.notify(_("Démarrez d'abord Windows"))
             return
         from . import restore, slim
         if restore.settings()["auto"]:
@@ -94,7 +94,8 @@ class GeneralSection(Section):
             _point, err = restore.auto_point("windows-update")
             try:
                 slim.open_windows_update()
-                GLib.idle_add(self.win.notify, _("Windows Update est ouvert, sans point de restauration : {e}",
+                GLib.idle_add(self.win.notify, _("Windows Update est ouvert, mais Vasistas n'a pas pu créer de point "
+                                                 "de restauration : {e}",
                                                  e=err) if err else _("Windows Update est ouvert"))
             except Exception as e:  # noqa: BLE001
                 GLib.idle_add(self.win.notify, _("Échec : {e}", e=e))

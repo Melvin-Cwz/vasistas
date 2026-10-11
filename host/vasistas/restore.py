@@ -250,7 +250,7 @@ def create(name=None, reason="manual", app=None, auto=False):
         raise RestoreError(_("Moins de {n} Go libres : libérez de la place avant de créer un point de "
                              "restauration.", n=MIN_FREE_GB))
     if name and any(name in (p["label"], p["tag"]) for p in points()):
-        raise RestoreError(_("Un point porte déjà ce nom : {name}", name=name))
+        raise RestoreError(_("Un point de restauration porte déjà ce nom : {name}", name=name))
     created = time.time()
     tag = new_tag(auto, created, {s["tag"] for s in snapshots()})
     if vm.pid():

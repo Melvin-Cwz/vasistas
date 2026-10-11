@@ -37,8 +37,9 @@ class FineTuneSection(Section):
         self.header(_("Images"))
         self.drop("timer", [_("Sur secteur seulement"), _("Toujours"), _("Jamais")], list(power.TIMERS),
                   title=_("Minuterie précise (1 ms)"),
-                  sub=_("Windows se réveille toutes les millisecondes au lieu de toutes les 15,6 ms : images plus "
-                        "régulières, consommation légèrement plus élevée. Prend effet immédiatement."))
+                  sub=_("Windows se réveille toutes les millisecondes au lieu de toutes les 15,6 ms : les images "
+                        "sont plus régulières et la consommation légèrement plus élevée. Ce réglage prend effet "
+                        "immédiatement."))
         self.drop("occluded_ms", [_("Selon la puissance")] + [_("{n} ms", n=ms) for ms in power.OCCLUDED_CHOICES],
                   [None, *power.OCCLUDED_CHOICES], title=_("Fenêtres recouvertes"),
                   sub=_("Délai entre deux images d'une fenêtre cachée derrière une autre. Selon la puissance : "
@@ -47,8 +48,9 @@ class FineTuneSection(Section):
                         3: _("Cadence sans signal à Windows"), 7: _("Complète (60 Hz)")}
         self.drop("vsync", [vsync_labels[m] for m in power.VSYNC_MODES], list(power.VSYNC_MODES), restart=True,
                   title=_("Synchronisation verticale"),
-                  sub=_("Avec le pilote d'écran modifié (page Préférences, section Expérimental), Windows compose ses "
-                        "images au rythme d'un écran à 60 Hz. Prend effet au prochain démarrage de Windows."))
+                  sub=_("Avec le pilote d'écran modifié (page Préférences, section Expérimental), Windows compose "
+                        "ses images au rythme d'un écran à 60 Hz. Ce réglage prend effet au prochain démarrage de "
+                        "Windows."))
 
         self.header(_("Veille et arrêt"))
         from . import sleep
@@ -140,13 +142,13 @@ class MaintenanceSection(Section):
         super().__init__("applications-utilities", _("Maintenance"), "")
         self.win = win
         self.header(_("Maintenance"))
-        self.add(dim(_("À utiliser si une fonction de Vasistas ne fonctionne plus correctement, ou pour réinstaller "
-                       "Windows.")))
+        self.add(dim(_("Ces outils servent lorsqu'une fonction de Vasistas ne fonctionne plus correctement, ou pour "
+                       "réinstaller Windows.")))
         self.configure_btn = Gtk.Button(label=_("Reconfigurer"))
         self.configure_btn.connect("clicked", lambda *_a: self.win.page("windows").configure())
         self.add(row(_("Configuration de Windows pour Vasistas"),
-                     _("Réinstalle l'agent, les pilotes et les réglages nécessaires (dossiers partagés, pas "
-                       "d'écran de verrouillage…) sans toucher à vos applications ni à vos fichiers."),
+                     _("Vasistas réinstalle l'agent, les pilotes et les réglages nécessaires (dossiers partagés, "
+                       "suppression de l'écran de verrouillage…) sans modifier vos applications ni vos fichiers."),
                      self.configure_btn))
         from .companion_windows import CONFIGURE
         self.configure_btn.set_visible(CONFIGURE.exists())

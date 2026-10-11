@@ -76,7 +76,7 @@ CATALOG = [
                  "ScoobeSystemSettingEnabled", 0)]},
     {"key": "activity", "group": "telemetry", "level": 1,
      "title": N_("Historique d'activité et saisie"),
-     "subtitle": N_("Plus d'envoi de l'historique d'activité ni des données de frappe et d'écriture manuscrite"),
+     "subtitle": N_("L'historique d'activité et les données de frappe et d'écriture manuscrite ne sont plus envoyés"),
      "reg": [_dw(fr"{HKLM_POL}\Windows\System", n, 0)
              for n in ("EnableActivityFeed", "PublishUserActivities", "UploadUserActivities")] + [
              _dw(r"HKCU:\Software\Microsoft\InputPersonalization", "RestrictImplicitTextCollection", 1),
@@ -84,7 +84,7 @@ CATALOG = [
              _dw(r"HKCU:\Software\Microsoft\Personalization\Settings", "AcceptedPrivacyPolicy", 0)]},
     {"key": "search-web", "group": "telemetry", "level": 1,
      "title": N_("Bing, Copilot et Recall"),
-     "subtitle": N_("Recherche Windows locale seulement, Copilot, Recall et Click to Do coupés"),
+     "subtitle": N_("Recherche Windows limitée à l'ordinateur ; Copilot, Recall et Click to Do désactivés"),
      "reg": [_dw(fr"{HKCU_POL}\Windows\Explorer", "DisableSearchBoxSuggestions", 1),
              _dw(fr"{HKLM_POL}\Windows\Windows Search", "AllowCortana", 0),
              _dw(fr"{HKLM_POL}\Windows\Windows Search", "ConnectedSearchUseWeb", 0),
@@ -96,16 +96,16 @@ CATALOG = [
              _dw(fr"{HKLM_POL}\Dsh", "AllowNewsAndInterests", 0)]},
     {"key": "office-telemetry", "group": "telemetry", "level": 1,
      "title": N_("Télémétrie d'Office"),
-     "subtitle": N_("Envoi de données et enquêtes coupés, expériences connectées facultatives aussi ; "
-                    "la co-édition et SharePoint restent"),
+     "subtitle": N_("Envoi de données, enquêtes et expériences connectées facultatives désactivés ; la coédition et "
+                    "SharePoint restent disponibles"),
      "reg": [_dw(fr"{HKCU_POL}\office\common\clienttelemetry", "SendTelemetry", 3),
              _dw(fr"{HKCU_POL}\office\16.0\common\privacy", "controllerconnectedservicesenabled", 2),
              _dw(fr"{HKCU_POL}\office\16.0\common\feedback", "enabled", 0),
              _dw(fr"{HKCU_POL}\office\16.0\common\feedback", "surveyenabled", 0)]},
     {"key": "edge", "group": "telemetry", "level": 1,
      "title": N_("Edge en arrière-plan"),
-     "subtitle": N_("Démarrage anticipé, mode arrière-plan, données de diagnostic et barre latérale coupés ; "
-                    "WebView2 (Outlook, Teams) n'est pas touché"),
+     "subtitle": N_("Démarrage anticipé, mode arrière-plan, données de diagnostic et barre latérale désactivés ; "
+                    "WebView2 (Outlook, Teams) n'est pas modifié"),
      "reg": [_dw(fr"{HKLM_POL}\Edge", "StartupBoostEnabled", 0),
              _dw(fr"{HKLM_POL}\Edge", "BackgroundModeEnabled", 0),
              _dw(fr"{HKLM_POL}\Edge", "DiagnosticData", 0),
@@ -139,7 +139,8 @@ foreach ($l in ($B -split "`n")) { if ($l) { $i = $l.IndexOf('='); New-ItemPrope
     {"key": "apps-extra", "group": "apps", "level": 2, "reversible": False,
      "title": N_("Petites applications Windows"),
      "subtitle": N_("To Do, Alarmes, Caméra, Enregistreur vocal, Pense-bêtes, Photos, Mobile connecté (Phone Link), "
-                    "Widgets, gestionnaire IA ; gardées : Bloc-notes, Calculatrice, Paint, Capture, Terminal, Store"),
+                    "Widgets, gestionnaire IA ; conservées : Bloc-notes, Calculatrice, Paint, Capture, Terminal, "
+                    "Store"),
      "appx": ["Microsoft.Todos", "Microsoft.WindowsAlarms", "Microsoft.WindowsCamera",
               "Microsoft.WindowsSoundRecorder", "Microsoft.MicrosoftStickyNotes", "Microsoft.Windows.Photos",
               "Microsoft.YourPhone", "MicrosoftWindows.CrossDevice", "MicrosoftWindows.Client.WebExperience",
@@ -161,16 +162,18 @@ foreach ($l in ($B -split "`n")) { if ($l) { $i = $l.IndexOf('='); New-ItemPrope
      "svc": _svc(4, "SysMain")},
     {"key": "wsearch", "group": "services", "level": 2,
      "title": N_("Indexation (Windows Search)"),
-     "subtitle": N_("Outlook nouveau cherche côté serveur ; la recherche du menu Démarrer devient plus lente sur les fichiers"),
+     "subtitle": N_("Le nouvel Outlook effectue ses recherches sur le serveur ; la recherche de fichiers depuis le "
+                    "menu Démarrer devient plus lente"),
      "svc": _svc(4, "WSearch")},
     {"key": "svc-heavy", "group": "services", "level": 3,
      "title": N_("Partage de fichiers entrant et diagnostic"),
      "subtitle": N_("Serveur SMB (les dossiers passent par virtiofs) et service de stratégie de diagnostic (dépannage réseau)"),
      "svc": _svc(4, "LanmanServer", "DPS", "WdiServiceHost", "WdiSystemHost")},
     {"key": "updates", "group": "services", "level": 1,
-     "title": N_("Mises à jour Windows en manuel"),
-     "subtitle": N_("Plus d'installation en fond ni de redémarrage imposé ; bouton « Mettre à jour Windows » plus bas. "
-                    "Store et Office restent automatiques ; pas de partage de mises à jour en pair à pair"),
+     "title": N_("Mises à jour de Windows manuelles"),
+     "subtitle": N_("Windows n'installe plus les mises à jour en arrière-plan et n'impose plus de redémarrage ; "
+                    "bouton « Mettre à jour Windows » plus bas. Les mises à jour du Store et d'Office restent "
+                    "automatiques ; pas de partage des mises à jour en pair à pair"),
      "reg": [_dw(fr"{HKLM_POL}\Windows\WindowsUpdate\AU", "NoAutoUpdate", 1),
              _dw(fr"{HKLM_POL}\Windows\WindowsUpdate\AU", "AUOptions", 2),
              _dw(fr"{HKLM_POL}\Windows\WindowsUpdate\AU", "NoAutoRebootWithLoggedOnUsers", 1),
@@ -191,16 +194,17 @@ foreach ($l in ($B -split "`n")) { if ($l) { $i = $l.IndexOf('='); New-ItemPrope
               r"\Microsoft\XblGameSave\XblGameSaveTask"]},
     {"key": "maintenance", "group": "tasks", "level": 3,
      "title": N_("Maintenance automatique"),
-     "subtitle": N_("Défragmentation planifiée et maintenance de nuit coupées (le disque virtuel reçoit déjà les TRIM)"),
+     "subtitle": N_("Défragmentation planifiée et maintenance de nuit désactivées (le disque virtuel reçoit déjà les "
+                    "TRIM)"),
      "task": [r"\Microsoft\Windows\Defrag\ScheduledDefrag"],
      "reg": [_dw(r"HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\Maintenance",
                  "MaintenanceDisabled", 1)]},
 
     # -- mémoire et processeur --
     {"key": "defender", "group": "perf", "level": 2,
-     "title": N_("Defender bridé"),
-     "subtitle": N_("Protection en temps réel gardée ; analyses à 20 % du processeur, priorité basse, "
-                    "seulement quand Windows est inactif ; agent Vasistas exclu"),
+     "title": N_("Defender limité"),
+     "subtitle": N_("Protection en temps réel conservée ; analyses limitées à 20 % du processeur, en priorité basse, "
+                    "uniquement lorsque Windows est inactif ; agent Vasistas exclu"),
      "ps": {
          "test": r"$m = Get-MpPreference; $m.ScanAvgCPULoadFactor -eq 20 -and $m.EnableLowCpuPriority -and $m.ScanOnlyIfIdleEnabled",
          "apply": r"""
@@ -239,7 +243,8 @@ if ($B) { New-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 """}},
     {"key": "hibernate", "group": "perf", "level": 2,
      "title": N_("Veille prolongée et démarrage rapide"),
-     "subtitle": N_("Inutiles : Vasistas met la VM en pause lui-même ; libère le fichier hiberfil.sys"),
+     "subtitle": N_("Inutiles, car Vasistas met lui-même la VM en pause ; l'espace du fichier hiberfil.sys est "
+                    "libéré"),
      "ps": {"test": r"-not (Test-Path C:\hiberfil.sys -ErrorAction SilentlyContinue)",
             "apply": "powercfg /hibernate off | Out-Null",
             "restore": "powercfg /hibernate on | Out-Null"}},
@@ -281,17 +286,17 @@ if ($B -eq 'True') { Set-CimInstance (Get-CimInstance Win32_ComputerSystem) -Pro
     # -- composants --
     {"key": "caps", "group": "components", "level": 3, "reversible": False,
      "title": N_("Composants facultatifs"),
-     "subtitle": N_("Pilotes Wi-Fi et Ethernet physiques, Windows Hello visage, Internet Explorer, enregistreur d'actions, "
-                    "reconnaissance d'écriture, de maths, de la parole et OCR, PowerShell ISE, Lecteur Windows Media, "
-                    "fonds d'écran ; la synthèse vocale (Lecture à voix haute de Word) est gardée"),
+     "subtitle": N_("Pilotes Wi-Fi et Ethernet physiques, Windows Hello visage, Internet Explorer, enregistreur "
+                    "d'actions, reconnaissance d'écriture, de maths, de la parole et OCR, PowerShell ISE, Lecteur "
+                    "Windows Media, fonds d'écran ; la synthèse vocale (Lecture à voix haute de Word) est conservée"),
      "cap": ["Microsoft.Windows.Wifi.Client.", "Microsoft.Windows.Ethernet.Client.", "Hello.Face.",
              "Browser.InternetExplorer~", "App.StepsRecorder~", "MathRecognizer~", "Language.Handwriting~",
              "Language.Speech~", "Language.OCR~", "Microsoft.Windows.PowerShell.ISE~",
              "Media.WindowsMediaPlayer~", "Microsoft.Wallpapers.Extended~"]},
     {"key": "features", "group": "components", "level": 3,
      "title": N_("Fonctionnalités facultatives"),
-     "subtitle": N_("Dossiers de travail, SMB Direct, impression Internet, Lecteur Windows Media hérité ; "
-                    "Microsoft Print to PDF est gardé"),
+     "subtitle": N_("Dossiers de travail, SMB Direct, impression Internet, Lecteur Windows Media hérité ; Microsoft "
+                    "Print to PDF est conservé"),
      "feat": ["WorkFolders-Client", "SmbDirect", "Printing-Foundation-InternetPrinting-Client",
               "WindowsMediaPlayer", "MediaPlayback"]},
 ]

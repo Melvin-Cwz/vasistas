@@ -71,7 +71,7 @@ def main(argv=None):
     sub.add_parser("indicator", help=_("indicateur dans le panneau (état de Windows, applications, commandes)"))
     p_boot = sub.add_parser("boot", help=_("démarrer la VM puis afficher ses fenêtres (ouverture de session)"))
     p_boot.add_argument("--sleep", action="store_true", help=_("mettre Windows en veille dès que Windows est prêt"))
-    p_var = sub.add_parser("variant", help=_("version d'une application (ex. outlook new|classic)"))
+    p_var = sub.add_parser("variant", help=_("version d'une application (par exemple outlook new|classic)"))
     p_var.add_argument("app")
     p_var.add_argument("choice", nargs="?")
     p_bench = sub.add_parser("bench", help=_("mesurer le coût au repos et la latence (docs/perf.jsonl)"))
@@ -84,10 +84,10 @@ def main(argv=None):
     p_bench.add_argument("--label", default="", help=_("étiquette de la mesure"))
     p_bench.add_argument("--force", action="store_true", help=_("mesurer la latence même si Windows est en cours "
                                                                 "d'utilisation"))
-    sub.add_parser("reset-windows", help=_("remettre toutes les fenêtres Windows centrées sur leur écran"))
+    sub.add_parser("reset-windows", help=_("recentrer toutes les fenêtres Windows sur leur écran"))
     p_win = sub.add_parser("windows", help=_("fenêtres de l'invité, suivies ou non, et pourquoi"))
     p_win.add_argument("--all", action="store_true", help=_("afficher aussi les fenêtres ignorées"))
-    p_slim = sub.add_parser("slim", help=_("alléger Windows (télémétrie, applis, services)"))
+    p_slim = sub.add_parser("slim", help=_("alléger Windows (télémétrie, applications, services)"))
     p_slim.add_argument("action", choices=["status", "apply", "restore", "snapshot", "rollback", "list"])
     p_slim.add_argument("keys", nargs="*", help=_("éléments à alléger, ou option --level"))
     p_slim.add_argument("--level", type=int, choices=[1, 2, 3])
@@ -154,7 +154,7 @@ def main(argv=None):
             on = [e for e in exts if desig.get(e) == app]
             off = [e for e in exts if desig.get(e) != app]
             print(_("{name} ({app}) : {exts}", name=name, app=app, exts=' '.join('.' + e for e in on) or '-')
-                  + (_("   [non désignées : {exts}]", exts=' '.join('.' + e for e in off)) if off else ""))
+                  + (_("   [non associées : {exts}]", exts=' '.join('.' + e for e in off)) if off else ""))
         return 0
 
     if args.cmd == "folders":

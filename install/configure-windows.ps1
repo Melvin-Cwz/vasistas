@@ -140,7 +140,7 @@ if ($isAdmin) {
 } elseif ($Check) {
     Step admin 'Droits administrateur' warning 'absents : contrôle possible, application impossible'
 } else {
-    Step admin 'Droits administrateur' failed 'relancer PowerShell « en tant qu''administrateur »'
+    Step admin 'Droits administrateur' failed 'relancez PowerShell « en tant qu''administrateur »'
     Write-Output (@{ ok = $false; ready = $false; check = $Check; reboot = $false; steps = $Steps } | ConvertTo-Json -Compress)
     exit 1
 }
@@ -190,7 +190,7 @@ if ($SkipDrivers) {
                 try { $msi = Save-Download $VirtioUrl 'virtio-win-gt-x64.msi' } catch { Write-Host "  téléchargement : $($_.Exception.Message)" }
             }
             if (-not $msi) {
-                Step virtio $title failed 'virtio-win-gt-x64.msi introuvable (insérer le CD virtio-win)'
+                Step virtio $title failed 'virtio-win-gt-x64.msi introuvable (insérez le CD virtio-win)'
             } else {
                 # le canal de l'agent (virtio-serial) peut être coupé quelques secondes
                 $code = Install-Msi $msi
@@ -231,7 +231,7 @@ if ((Test-Path $LaunchCtl) -and (Get-Service 'WinFsp.Launcher' -ErrorAction Sile
         } catch { Write-Host "  GitHub : $($_.Exception.Message)" }
     }
     if (Test-Path $LaunchCtl) { Step winfsp $title done "installé ($how)" }
-    else { Step winfsp $title failed 'installation impossible (poser winfsp-*.msi sur un lecteur, ou autoriser le téléchargement)' }
+    else { Step winfsp $title failed 'installation impossible (copiez winfsp-*.msi sur un lecteur ou autorisez le téléchargement)' }
 }
 
 # -- 4. service VirtIO-FS lancé par WinFsp (comme boot.ps1) --
@@ -254,7 +254,7 @@ if ($fsBad.Count -eq 0 -and -not $svcAuto) {
 } elseif ($Check) {
     $why = @()
     if ($fsBad.Count) { $why += "$($fsBad.Count) valeur(s) à écrire" }
-    if ($svcAuto) { $why += 'VirtioFsSvc en démarrage automatique (à passer en manuel)' }
+    if ($svcAuto) { $why += 'VirtioFsSvc en démarrage automatique (à passer en démarrage manuel)' }
     Step virtiofs $title todo ($why -join ', ')
 } elseif (-not (Test-Path $VirtioFsExe)) {
     Step virtiofs $title failed 'virtiofs.exe absent (pilotes virtio)'
@@ -506,13 +506,13 @@ $wlKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
 $wl = Get-ItemProperty -LiteralPath $wlKey -ErrorAction SilentlyContinue
 $autoOk = $wl.AutoAdminLogon -eq '1' -and $wl.DefaultUserName -eq $UserName
 if ($autoOk -and -not $AutoLogonPassword) {
-    $note = if ($wl.DefaultPassword) { 'mot de passe en clair dans le registre (relancer avec -AutoLogonPassword pour le protéger)' }
+    $note = if ($wl.DefaultPassword) { 'mot de passe en clair dans le registre (relancez avec -AutoLogonPassword pour le protéger)' }
             elseif ($null -ne $wl.AutoLogonCount -and [int64]$wl.AutoLogonCount -lt 10000) { "limitée à $($wl.AutoLogonCount) ouvertures (-AutoLogonPassword la rend permanente)" }
             else { '' }
     Step autologon $title ok $note
 } elseif (-not $AutoLogonPassword) {
-    Step autologon $title warning ('non configurée : sans elle, Windows attend à l''écran de connexion et Vasistas ' +
-        'ne voit rien. Relancer avec -AutoLogonPassword')
+    Step autologon $title warning ('non configurée : sans ouverture de session automatique, Windows reste sur l''écran de connexion ' +
+        'et Vasistas ne peut afficher aucune fenêtre. Relancez avec -AutoLogonPassword')
 } elseif ($Check) {
     Step autologon $title todo 'sera configurée (mot de passe fourni)'
 } else {
@@ -592,6 +592,6 @@ if ($Check) {
 } else {
     Write-Host $(if ($ok) { 'Bilan : configuration terminée.' } else { "Bilan : $($failed.Count) étape(s) en échec : $($failed -join ', ')." })
 }
-if ($script:NeedReboot) { Write-Host 'Redémarrer Windows pour terminer (pilotes).' }
+if ($script:NeedReboot) { Write-Host 'Redémarrez Windows pour terminer l''installation des pilotes.' }
 Write-Output (@{ ok = $ok; ready = $ready; check = $Check; reboot = $script:NeedReboot; steps = $Steps } | ConvertTo-Json -Compress)
 if (-not $ok) { exit 1 }
