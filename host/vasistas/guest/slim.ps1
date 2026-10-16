@@ -51,6 +51,38 @@ function Reg-Set($path, $name, $type, $value) {
     if ($type -eq 'MultiString') { $value = [string[]]@($value) }
     New-ItemProperty -Path $path -Name $name -PropertyType $type -Value $value -Force | Out-Null
 }
+# Clés et tâches protégées (DPS, Wdi*, TrkWks, tâches IA) : l'administrateur ne peut pas les
+# modifier directement. Replis : sc.exe (gestionnaire de services), puis le compte SYSTEM par une
+# tâche planifiée temporaire.
+function As-System($cmd) {
+    $name = 'Vasistas-slim-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+    $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c $cmd"
+    $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+    Register-ScheduledTask -TaskName $name -Action $action -Principal $principal | Out-Null
+    try {
+        Start-ScheduledTask -TaskName $name
+        $t0 = Get-Date
+        do { Start-Sleep -Milliseconds 200 } while ((Get-ScheduledTask -TaskName $name).State -eq 'Running' -and ((Get-Date) - $t0).TotalSeconds -lt 30)
+    } finally { Unregister-ScheduledTask -TaskName $name -Confirm:$false }
+}
+function Set-SvcStart($name, $start) {
+    try { Set-ItemProperty (Svc-Key $name) -Name Start -Value $start; return } catch { }
+    $svc = ($name -replace '_\*$', '')
+    $mode = @{ 2 = 'auto'; 3 = 'demand'; 4 = 'disabled' }[[int]$start]
+    sc.exe config $svc start= $mode | Out-Null
+    if ((Svc-Start $name) -ne $start) { As-System "sc.exe config $svc start= $mode" }
+    if ((Svc-Start $name) -ne $start) { throw "démarrage $start refusé, même au compte SYSTEM" }
+}
+function Set-TaskEnabled($path, $name, $on) {
+    try {
+        if ($on) { Enable-ScheduledTask -TaskPath $path -TaskName $name -ErrorAction Stop | Out-Null }
+        else { Disable-ScheduledTask -TaskPath $path -TaskName $name -ErrorAction Stop | Out-Null }
+        return
+    } catch { }
+    As-System ('schtasks /Change /TN "' + $path + $name + '" ' + $(if ($on) { '/ENABLE' } else { '/DISABLE' }))
+    $st = (Get-ScheduledTask -TaskPath $path -TaskName $name).State
+    if (($st -eq 'Disabled') -eq [bool]$on) { throw 'accès refusé, même au compte SYSTEM' }
+}
 function Same($a, $b) { (@($a) -join "`n") -eq (@($b) -join "`n") }
 function Tasks($pattern) {
     $path = $pattern.Substring(0, $pattern.LastIndexOf('\') + 1)
@@ -101,7 +133,7 @@ function Apply-Item($it, $bk) {
             $old = Svc-Start $s.name
             if ($old -eq $null) { continue }
             if ($first) { $b.svc[$s.name] = $old }
-            Set-ItemProperty (Svc-Key $s.name) -Name Start -Value $s.start
+            Set-SvcStart $s.name $s.start
             if ($s.start -eq 4) {
                 Get-Service -Name ($s.name) -ErrorAction SilentlyContinue |
                     Where-Object Status -eq 'Running' | Stop-Service -Force -ErrorAction SilentlyContinue
@@ -124,7 +156,7 @@ function Apply-Item($it, $bk) {
         foreach ($x in (Tasks $t)) {
             try {
                 if ($first) { $b.task[$x.TaskPath + $x.TaskName] = ($x.State -ne 'Disabled') }
-                if ($x.State -ne 'Disabled') { Disable-ScheduledTask -TaskPath $x.TaskPath -TaskName $x.TaskName | Out-Null }
+                if ($x.State -ne 'Disabled') { Set-TaskEnabled $x.TaskPath $x.TaskName $false }
             } catch { Err $key "tâche $($x.TaskName)" $_ }
         }
     }
@@ -174,7 +206,7 @@ function Restore-Item($it, $bk) {
     if ($b.svc) {
         foreach ($p in $b.svc.PSObject.Properties) {
             try {
-                Set-ItemProperty (Svc-Key $p.Name) -Name Start -Value ([int]$p.Value)
+                Set-SvcStart $p.Name ([int]$p.Value)
                 if ([int]$p.Value -eq 2) { Get-Service -Name $p.Name -ErrorAction SilentlyContinue | Start-Service -ErrorAction SilentlyContinue }
             } catch { Err $key "service $($p.Name)" $_ }
         }
@@ -191,7 +223,7 @@ function Restore-Item($it, $bk) {
             if (-not $p.Value) { continue }
             try {
                 $i = $p.Name.LastIndexOf('\')
-                Enable-ScheduledTask -TaskPath $p.Name.Substring(0, $i + 1) -TaskName $p.Name.Substring($i + 1) | Out-Null
+                Set-TaskEnabled $p.Name.Substring(0, $i + 1) $p.Name.Substring($i + 1) $true
             } catch { Err $key "tâche $($p.Name)" $_ }
         }
     }

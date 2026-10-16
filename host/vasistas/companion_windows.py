@@ -8,7 +8,8 @@ import threading
 from gi.repository import GLib, Granite, Gtk
 
 from . import control, desktop, vm, winctl
-from .companion_common import ColumnsPage, Section, advanced_card, dim, guest_ready, row
+from .companion_common import ColumnsPage, Section, dim, guest_ready, row, failure, notify_failure
+from .companion_home import TITLES
 from .i18n import N_, _
 from .winctl import APP_ID
 
@@ -98,7 +99,7 @@ class GeneralSection(Section):
                                                  "de restauration : {e}",
                                                  e=err) if err else _("Windows Update est ouvert"))
             except Exception as e:  # noqa: BLE001
-                GLib.idle_add(self.win.notify, _("Échec : {e}", e=e))
+                notify_failure(self.win, e)
             GLib.idle_add(self.show_wu)
         threading.Thread(target=work, daemon=True).start()
 
@@ -112,15 +113,15 @@ class WindowsPage(ColumnsPage):
         from .companion_printers import PrintersPage
         from .companion_screens import IntegrationPage
         from .companion_slim import SlimPage
+        # Clavier et Imprimantes en sections visibles : repliées dans « Options avancées », on ne
+        # les trouvait pas (touche Super, Alt+Tab)
         super().__init__(APP_ID, "Windows", "",
-                         [("general", GeneralSection(win))],
+                         [("general", GeneralSection(win)), ("keyboard", KeyboardPage(win)),
+                          ("printers", PrintersPage(win))],
                          [("slim", SlimPage(win)), ("integration", IntegrationPage(win))])
         self.win = win
         self.busy = None  # « start », « stop », « restart » (lancés par le diagnostic ou la bannière)
         self.state = {}
-        extra = {"keyboard": KeyboardPage(win), "printers": PrintersPage(win)}
-        self.sections.update(extra)
-        self.left_column.append(advanced_card(*extra.values()))
         self.update({})
 
     def update(self, state):
@@ -136,14 +137,14 @@ class WindowsPage(ColumnsPage):
         if self.busy:
             text, kind = _(STATES[self.busy]), Granite.SettingsPageStatusType.WARNING
             status = _("Patientez…")
+        # mêmes phrases que l'Accueil (companion_home.TITLES) : un seul texte par état
         elif not running:
-            text, kind, status = _("Windows est arrêté. Windows démarre automatiquement quand vous ouvrez une "
-                                   "application Windows."), Granite.SettingsPageStatusType.OFFLINE, _("Arrêté")
+            text, kind, status = _(TITLES["stopped"][1]), Granite.SettingsPageStatusType.OFFLINE, _("Arrêté")
         elif not ready:
-            text, kind, status = (_("Démarrage de Windows…"), Granite.SettingsPageStatusType.WARNING,
+            text, kind, status = (_(TITLES["starting"][1]), Granite.SettingsPageStatusType.WARNING,
                                   _("Démarrage"))
         elif host.get("paused"):
-            text = _("En veille : Windows sort automatiquement de veille au premier clic dans une fenêtre Windows.")
+            text = _(TITLES["asleep"][1])
             kind, status = Granite.SettingsPageStatusType.WARNING, _("En veille")
         else:
             n = host.get("windows", 0)
@@ -165,7 +166,7 @@ class WindowsPage(ColumnsPage):
                 if action == "restart":
                     GLib.idle_add(setattr, self, "busy", "start")
             except Exception as e:  # noqa: BLE001 - affiché à l'utilisateur
-                GLib.idle_add(self.win.notify, _("Échec : {e}", e=e))
+                notify_failure(self.win, e)
                 GLib.idle_add(setattr, self, "busy", None)
         threading.Thread(target=work, daemon=True).start()
 
@@ -174,7 +175,7 @@ class WindowsPage(ColumnsPage):
             try:
                 winctl.sleep()
             except OSError as e:
-                GLib.idle_add(self.win.notify, _("Échec : {e}", e=e))
+                notify_failure(self.win, e)
             self.win.poll()
         threading.Thread(target=work, daemon=True).start()
 
@@ -191,6 +192,6 @@ class WindowsPage(ColumnsPage):
                 if "reboot\":true" in out.replace(" ", ""):
                     msg += _(". Redémarrez Windows pour terminer")
             except OSError as e:
-                msg = _("Échec : {e}", e=e)
+                msg = failure(e)
             GLib.idle_add(self.win.notify, msg)
         threading.Thread(target=work, daemon=True).start()

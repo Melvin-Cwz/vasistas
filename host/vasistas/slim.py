@@ -20,7 +20,9 @@ from .i18n import N_, _
 SCRIPT = Path(__file__).resolve().parent / "guest" / "slim.ps1"
 SNAPSHOT = "avant-allegement"
 CACHE = vm.DATA / "slim.json"  # dernier état lu, et mesure d'avant le premier allègement
-LEVELS = {1: N_("Léger"), 2: N_("Fort"), 3: N_("Maximal")}
+# niveau 4 : hors des niveaux proposés dans le compagnon (Defender coupé), à choisir élément par élément
+LEVELS = {1: N_("Léger"), 2: N_("Fort"), 3: N_("Maximal"), 4: N_("Sans antivirus"),
+          5: N_("Ultra (Office et Power BI seuls)")}
 GROUPS = {
     "telemetry": N_("Télémétrie et publicité"),
     "apps": N_("Applications"),
@@ -157,9 +159,12 @@ foreach ($l in ($B -split "`n")) { if ($l) { $i = $l.IndexOf('='); New-ItemPrope
                  "iphlpsvc", "lmhosts", "SstpSvc", "WerSvc")},
     {"key": "sysmain", "group": "services", "level": 2,
      "title": N_("Préchargement (SysMain)"),
-     "subtitle": N_("Précharge en mémoire les applications que Windows prévoit d'ouvrir ; inutile sur un disque "
-                    "virtuel, consomme de la RAM"),
-     "svc": _svc(4, "SysMain")},
+     "subtitle": N_("Windows ne précharge plus en mémoire les applications qu'il prévoit d'ouvrir : inutile sur "
+                    "un disque virtuel. Le service SysMain reste actif, la compression de la mémoire en dépend"),
+     # pas SysMain désactivé : la compression de la mémoire (memcomp) en dépend, et Windows le
+     # remettait en automatique à chaque démarrage
+     "reg": [_dw(r"HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters",
+                 n, 0) for n in ("EnablePrefetcher", "EnableSuperfetch")]},
     {"key": "wsearch", "group": "services", "level": 2,
      "title": N_("Indexation (Windows Search)"),
      "subtitle": N_("Le nouvel Outlook effectue ses recherches sur le serveur ; la recherche de fichiers depuis le "
@@ -192,6 +197,25 @@ foreach ($l in ($B -split "`n")) { if ($l) { $i = $l.IndexOf('='); New-ItemPrope
               r"\Microsoft\Windows\Maps\*",
               r"\Microsoft\Windows\Power Efficiency Diagnostics\AnalyzeSystem",
               r"\Microsoft\XblGameSave\XblGameSaveTask"]},
+    {"key": "tasks-extra", "group": "tasks", "level": 3,
+     "title": N_("Tâches de fond secondaires"),
+     "subtitle": N_("IA Windows (Recall, Click to Do), modèles vocaux, prévisions du réseau électrique, essais de "
+                    "fonctions, inventaire de l'appareil, suggestions, rapports OneDrive, vérification horaire d'Edge "
+                    "(la quotidienne reste : WebView2 continue de se mettre à jour), déploiement des nouvelles "
+                    "fonctions et moniteur de performances d'Office (les mises à jour d'Office restent "
+                    "automatiques)"),
+     "task": [r"\Microsoft\Windows\WindowsAI\*\*",
+              r"\Microsoft\Windows\Speech\SpeechModelDownloadTask",
+              r"\Microsoft\Windows\Sustainability\*",
+              r"\Microsoft\Windows\Flighting\*\*",
+              r"\Microsoft\Windows\UsageAndQualityInsights\*",
+              r"\Microsoft\Windows\Device Information\*",
+              r"\SoftLanding\*\*",
+              r"\OneDrive Reporting Task-*",
+              r"\MicrosoftEdgeUpdateTaskMachineUA*",
+              r"\Microsoft\Office\Office Feature Updates*",
+              r"\Microsoft\Office\Office Performance Monitor",
+              r"\Microsoft\Office\Office Background Push Maintenance"]},
     {"key": "maintenance", "group": "tasks", "level": 3,
      "title": N_("Maintenance automatique"),
      "subtitle": N_("Défragmentation planifiée et maintenance de nuit désactivées (le disque virtuel reçoit déjà les "
@@ -219,6 +243,36 @@ $v = $B -split ';'
 Set-MpPreference -ScanAvgCPULoadFactor ([int]$v[0]) -EnableLowCpuPriority ([bool][int]$v[1]) -ScanOnlyIfIdleEnabled ([bool][int]$v[2]) -DisableCatchupFullScan ([bool][int]$v[3])
 Remove-MpPreference -ExclusionProcess 'Vasistas.Agent.exe' -ExclusionPath 'C:\Program Files\Vasistas'
 """}},
+    {"key": "defender-off", "group": "perf", "level": 4,
+     "title": N_("Defender coupé"),
+     "subtitle": N_("Protection en temps réel, surveillance des comportements et analyse à l'accès désactivées : "
+                    "Windows n'analyse plus les pièces jointes ni les documents téléchargés. Demande d'abord de "
+                    "couper la protection contre les falsifications dans Sécurité Windows"),
+     "ps": {
+         "test": r"(Get-MpComputerStatus).RealTimeProtectionEnabled -eq $false",
+         "apply": r"""
+if ((Get-MpComputerStatus).IsTamperProtected) {
+    throw 'protection contre les falsifications active : la couper dans Sécurité Windows > Protection contre les virus et menaces > Gérer les paramètres, puis réappliquer'
+}
+$k = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'
+New-Item $k -Force | Out-Null
+foreach ($n in 'DisableRealtimeMonitoring', 'DisableBehaviorMonitoring', 'DisableOnAccessProtection', 'DisableScanOnRealtimeEnable', 'DisableIOAVProtection') {
+    Set-ItemProperty $k $n 1 -Type DWord
+}
+Set-MpPreference -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true -DisableIOAVProtection $true
+""",
+         "restore": r"""
+param($B)
+Remove-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection' -Recurse -ErrorAction SilentlyContinue
+Set-MpPreference -DisableRealtimeMonitoring $false -DisableBehaviorMonitoring $false -DisableIOAVProtection $false
+"""}},
+    {"key": "uac-silent", "group": "perf", "level": 4,
+     "title": N_("Élévation sans confirmation"),
+     "subtitle": N_("Les programmes qui demandent les droits d'administrateur les obtiennent sans fenêtre de "
+                    "contrôle de compte : Windows refuse les clics transmis par Vasistas dans ces fenêtres, qui "
+                    "restaient bloquées"),
+     "reg": [_dw(r"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System",
+                 "ConsentPromptBehaviorAdmin", 0)]},
     {"key": "background", "group": "perf", "level": 2,
      "title": N_("Applications en arrière-plan"),
      "subtitle": N_("Les applications du Store ne fonctionnent plus une fois leur fenêtre fermée, sauf Teams et "
@@ -249,18 +303,18 @@ if ($B) { New-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
             "apply": "powercfg /hibernate off | Out-Null",
             "restore": "powercfg /hibernate on | Out-Null"}},
     {"key": "pagefile", "group": "perf", "level": 3,
-     "title": N_("Fichier d'échange fixe (2 Go)"),
-     "subtitle": N_("Taille fixe au lieu de variable : le fichier n'est plus agrandi en cours d'utilisation (prend "
-                    "effet au redémarrage)"),
+     "title": N_("Fichier d'échange de 4 à 16 Go"),
+     "subtitle": N_("Taille réglée à la main au lieu de la gestion automatique de Windows ; au-dessous de 16 Go, "
+                    "Power BI manque de mémoire (prend effet au redémarrage)"),
      "ps": {
-         "test": r"$p = Get-CimInstance Win32_PageFileSetting; $p -and $p.InitialSize -eq 2048 -and $p.MaximumSize -eq 2048",
+         "test": r"$p = Get-CimInstance Win32_PageFileSetting; $p -and $p.InitialSize -eq 4096 -and $p.MaximumSize -eq 16384",
          "apply": r"""
 $cs = Get-CimInstance Win32_ComputerSystem
 [string]$cs.AutomaticManagedPagefile
 Set-CimInstance $cs -Property @{ AutomaticManagedPagefile = $false }
 $p = Get-CimInstance Win32_PageFileSetting
 if (-not $p) { $p = New-CimInstance Win32_PageFileSetting -Property @{ Name = 'C:\pagefile.sys' } }
-Set-CimInstance $p -Property @{ InitialSize = [uint32]2048; MaximumSize = [uint32]2048 }
+Set-CimInstance $p -Property @{ InitialSize = [uint32]4096; MaximumSize = [uint32]16384 }
 """,
          "restore": r"""
 param($B)
@@ -274,6 +328,32 @@ if ($B -eq 'True') { Set-CimInstance (Get-CimInstance Win32_ComputerSystem) -Pro
      "ps": {"test": "(Get-MMAgent).MemoryCompression",
             "apply": "Enable-MMAgent -MemoryCompression",
             "restore": "Disable-MMAgent -MemoryCompression"}},
+    {"key": "svc-sober", "group": "services", "level": 3,
+     "title": N_("Services rarement utiles"),
+     "subtitle": N_("Transferts en arrière-plan (BITS) et WebDAV démarrés à la demande seulement ; consommation "
+                    "de données, programme Insider, contrôle parental, mode démo et télécopie désactivés"),
+     "svc": _svc(3, "BITS", "WebClient") + _svc(4, "DusmSvc", "wisvc", "WpcMonSvc", "RetailDemo", "Fax")},
+    {"key": "cd-polling", "group": "perf", "level": 2,
+     "title": N_("Surveillance des lecteurs CD"),
+     "subtitle": N_("Windows ne vérifie plus en continu si un disque a été inséré : chaque vérification réveillait "
+                    "la VM (prend effet au redémarrage)"),
+     "reg": [_dw(r"HKLM:\SYSTEM\CurrentControlSet\Services\cdrom", "AutoRun", 0)]},
+    {"key": "onedrive", "group": "apps", "level": 3, "reversible": False,
+     "title": N_("OneDrive dans Windows"),
+     "subtitle": N_("Client de synchronisation désinstallé et bloqué : les documents arrivent par les dossiers "
+                    "partagés de Linux ; Office enregistre toujours dans OneDrive et SharePoint"),
+     "reg": [_dw(fr"{HKLM_POL}\Windows\OneDrive", "DisableFileSyncNGSC", 1)],
+     "task": [r"\OneDrive *"],
+     "ps": {
+         "test": r"-not (Test-Path 'C:\Program Files\Microsoft OneDrive\OneDrive.exe') -and -not (Test-Path (Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive\OneDrive.exe'))",
+         "apply": r"""
+Get-Process OneDrive -ErrorAction SilentlyContinue | Stop-Process -Force
+$setup = @(Get-ChildItem 'C:\Program Files\Microsoft OneDrive\*\OneDriveSetup.exe', "$env:LOCALAPPDATA\Microsoft\OneDrive\*\OneDriveSetup.exe" -ErrorAction SilentlyContinue) + @(Get-Item "$env:SystemRoot\System32\OneDriveSetup.exe" -ErrorAction SilentlyContinue)
+foreach ($s in $setup) { Start-Process $s.FullName '/uninstall /allusers' -Wait -ErrorAction SilentlyContinue; if (-not (Test-Path 'C:\Program Files\Microsoft OneDrive\OneDrive.exe')) { break } }
+foreach ($k in 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run', 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run') {
+    foreach ($n in 'OneDrive', 'OneDriveSetup') { Remove-ItemProperty $k -Name $n -ErrorAction SilentlyContinue }
+}
+"""}},
     {"key": "svc-extra", "group": "services", "level": 2,
      "title": N_("Découverte réseau et BitLocker"),
      "subtitle": N_("Découverte UPnP (SSDP) et service BitLocker : ni l'un ni l'autre ne servent dans la VM"),
@@ -282,6 +362,68 @@ if ($B -eq 'True') { Set-CimInstance (Get-CimInstance Win32_ComputerSystem) -Pro
      "title": N_("Teams dans Windows"),
      "subtitle": N_("Doublon de Teams sous Linux (Microsoft 365 en ligne)"),
      "appx": ["MSTeams"]},
+
+    # -- niveau Ultra : tout ce qu'Office et Power BI n'utilisent pas. Gardés exprès : capture
+    # d'écran (CaptureService, l'agent filme par WGC), notifications (WpnService, bulles d'Outlook),
+    # comptes (TokenBroker, wlidsvc, ClipSVC), impression, WebView2, horloge, polices, thèmes --
+    {"key": "svc-ultra", "group": "services", "level": 5,
+     "title": N_("Services sans usage pour Office et Power BI"),
+     "subtitle": N_("Bureau à distance, capteurs, Bluetooth, carte à puce, biométrie, scanner, téléphonie, "
+                    "fichiers hors connexion, partage de connexion, Wi-Fi Direct, réalité mixte, lecture en "
+                    "cours, contacts et messages Windows, optimisation de la distribution, exécution sous un "
+                    "autre compte, filtrage web de Defender"),
+     "svc": _svc(4, "TermService", "SessionEnv", "UmRdpService", "RemoteRegistry", "RemoteAccess", "RpcLocator",
+                 "SensorService", "SensorDataService", "SensrSvc", "bthserv", "BthAvctpSvc", "BTAGService",
+                 "SCardSvr", "ScDeviceEnum", "SCPolicySvc", "WbioSrvc", "NaturalAuthentication", "stisvc",
+                 "FrameServer", "FrameServerMonitor", "TapiSrv", "PhoneSvc", "SmsRouter", "CscService",
+                 "SharedAccess", "icssvc", "WFDSConMgrSvc", "lltdsvc", "MSiSCSI", "NetTcpPortSharing",
+                 "p2pimsvc", "p2psvc", "PNRPsvc", "PeerDistSvc", "QWAVE", "SNMPTrap", "SEMgrSvc",
+                 "WalletService", "spectrum", "SharedRealitySvc", "MixedRealityOpenXRSvc",
+                 "perceptionsimulation", "WMPNetworkSvc", "workfolderssvc", "AssignedAccessManagerSvc",
+                 "AJRouter", "ALG", "dmwappushservice", "wercplsupport", "autotimesvc", "AxInstSV",
+                 "seclogon", "DoSvc", "webthreatdefsvc", "webthreatdefusersvc_*", "NPSMSvc_*",
+                 "BcastDVRUserService_*", "MessagingService_*", "PimIndexMaintenanceSvc_*",
+                 "BluetoothUserService_*", "DevicePickerUserSvc_*", "MicrosoftEdgeElevationService")},
+    {"key": "tasks-ultra", "group": "tasks", "level": 5,
+     "title": N_("Tâches d'entretien de Windows"),
+     "subtitle": N_("Diagnostics, vérification du disque et de la mémoire, sauvegarde du registre, nettoyage des "
+                    "composants, notes de performance, emplacement, réseau mobile, fichiers hors connexion, "
+                    "Bluetooth, analyses planifiées de Defender ; les tâches de licence et de mise à jour "
+                    "d'Office et du Store restent actives"),
+     "task": [r"\Microsoft\Windows\CloudExperienceHost\*",
+              r"\Microsoft\Windows\Chkdsk\*",
+              r"\Microsoft\Windows\Data Integrity Scan\*",
+              r"\Microsoft\Windows\Diagnosis\*",
+              r"\Microsoft\Windows\DiskFootprint\*",
+              r"\Microsoft\Windows\FileHistory\*",
+              r"\Microsoft\Windows\Location\*",
+              r"\Microsoft\Windows\Maintenance\WinSAT",
+              r"\Microsoft\Windows\MemoryDiagnostic\*",
+              r"\Microsoft\Windows\Mobile Broadband Accounts\*",
+              r"\Microsoft\Windows\NetTrace\*",
+              r"\Microsoft\Windows\Offline Files\*",
+              r"\Microsoft\Windows\PI\*",
+              r"\Microsoft\Windows\Registry\RegIdleBackup",
+              r"\Microsoft\Windows\RetailDemo\*",
+              r"\Microsoft\Windows\Servicing\StartComponentCleanup",
+              r"\Microsoft\Windows\Shell\FamilySafety*",
+              r"\Microsoft\Windows\SpacePort\*",
+              r"\Microsoft\Windows\WDI\*",
+              r"\Microsoft\Windows\Windows Defender\*",
+              r"\Microsoft\Windows\Work Folders\*",
+              r"\Microsoft\Windows\WwanSvc\*",
+              r"\Microsoft\Windows\Bluetooth\*",
+              r"\Microsoft\Windows\HelloFace\*",
+              r"\Microsoft\Windows\StateRepository\*"]},
+    {"key": "autologgers", "group": "perf", "level": 5,
+     "title": N_("Journaux de suivi au démarrage"),
+     "subtitle": N_("Sessions de traçage que Windows ouvre à chaque démarrage pour la télémétrie, le Wi-Fi, "
+                    "Defender, le réseau et le disque ; les journaux d'événements restent (prend effet au "
+                    "redémarrage)"),
+     "reg": [_dw(rf"HKLM:\SYSTEM\CurrentControlSet\Control\WMI\Autologger\{n}", "Start", 0)
+             for n in ("Diagtrack-Listener", "SQMLogger", "CloudExperienceHostOobe", "ReadyBoot", "WiFiSession",
+                       "LwtNetLog", "NBSMBLOGGER", "NtfsLog",
+                       "PEAuthLog", "RdrLog", "WdiContextLog", "Mellanox-Kernel")]},
 
     # -- composants --
     {"key": "caps", "group": "components", "level": 3, "reversible": False,
@@ -361,6 +503,37 @@ def apply(keys):
 
 def restore(keys):
     return run("restore", [k for k in keys if BY_KEY[k].get("reversible", True)], timeout=None)
+
+
+KEEP_UP_S = 20 * 3600
+
+
+def drifted(before, now):
+    """Éléments allégés (« on ») que Windows a défaits depuis (mise à jour, réparation)."""
+    return sorted(k for k, v in before.items() if v == "on" and now.get(k) in ("partial", "off") and k in BY_KEY)
+
+
+def keep_up():
+    """Réapplique ce que Windows a défait ; au plus une fois par période KEEP_UP_S. Appelé par
+    l'hôte quand Windows est prêt, hors du fil GTK (le moteur passe par le socket de contrôle)."""
+    c = cached()
+    before = c.get("status", {})
+    if not any(v == "on" for v in before.values()) or time.time() - c.get("kept_up", 0) < KEEP_UP_S:
+        return []
+    keys = drifted(before, status().get("status", {}))
+    if keys:
+        try:
+            apply(keys)
+        except Exception:
+            # status() vient d'écrire « partial » : remettre « on » pour réessayer au prochain démarrage
+            c = cached()
+            c.setdefault("status", {}).update({k: "on" for k in keys})
+            CACHE.write_text(json.dumps(c, ensure_ascii=False, indent=1))
+            raise
+    c = cached()
+    c["kept_up"] = int(time.time())
+    CACHE.write_text(json.dumps(c, ensure_ascii=False, indent=1))
+    return keys
 
 
 def keys_for_level(level):

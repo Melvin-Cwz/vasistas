@@ -1,16 +1,15 @@
-"""Accueil du compagnon, en tableau de bord : état de Windows et ses commandes, applications
-ouvertes avec leur mode d'affichage, raccourcis ; à droite l'écran en direct et le niveau de
-performance, réglable en un clic."""
+"""Accueil du compagnon : état de Windows et son action principale, applications ouvertes avec
+leur mode d'affichage ; à droite l'écran en direct et le mode d'affichage en cours. Les réglages
+restent dans leurs pages (Affichage, Windows) : l'Accueil résume et renvoie."""
 
 import os
 import threading
 import time
 
-from gi.repository import GLib, Granite, Gtk
+from gi.repository import GLib, Granite, Gtk, Pango
 
 from . import control, desktop, power, vm, winctl
-from .companion_common import badge, card, clear, columns, dash_card, dim, mode_chip
-from .companion_screens import ask_host
+from .companion_common import card, clear, columns, dash_card, dim, help_button, mode_chip, notify_failure
 from .i18n import N_, _
 from .winctl import APP_ID
 
@@ -73,16 +72,13 @@ class HomePage(Gtk.Box):
         outer.prepend(self.alerts_card())
         left.append(self.windows_card())
         left.append(self.apps_card())
-        left.append(self.shortcuts_card())
         from .companion_display import LivePanel
         self.live = LivePanel(compact=True)
         right.append(self.live)
-        right.append(self.perf_card())
+        right.append(self.display_card())
 
     def add_help(self, on_click):
-        btn = Gtk.Button(label="?", valign=Gtk.Align.CENTER, tooltip_text=_("Aide sur cette page"))
-        btn.add_css_class(Granite.STYLE_CLASS_CIRCULAR)
-        btn.connect("clicked", lambda *_a: on_click())
+        btn = help_button(on_click)
         self.win_head.append(btn)
         return btn
 
@@ -116,6 +112,9 @@ class HomePage(Gtk.Box):
         line = Gtk.Box(spacing=16)
         self.icon = Gtk.Image(icon_name="system-shutdown-symbolic", pixel_size=48)
         line.append(self.icon)
+        # démarrage : une roue qui tourne dit que ça avance, l'icône fixe ne le disait pas
+        self.spinner = Gtk.Spinner(width_request=48, height_request=48, visible=False)
+        line.append(self.spinner)
         texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER, hexpand=True)
         self.title = Gtk.Label(xalign=0)
         self.title.add_css_class(Granite.STYLE_CLASS_H2_LABEL)
@@ -142,6 +141,9 @@ class HomePage(Gtk.Box):
         self.title.set_label(_(title))
         self.subtitle.set_label(_(sub))
         self.icon.set_from_icon_name(ICONS[p])
+        self.icon.set_visible(p != "starting")
+        self.spinner.set_visible(p == "starting")
+        self.spinner.set_spinning(p == "starting")
         clear(self.buttons)
         # une action principale ; les autres dans le menu ⋯
         primary, others = {
@@ -179,7 +181,7 @@ class HomePage(Gtk.Box):
                 try:
                     fn()
                 except (OSError, SystemExit, Exception) as e:  # noqa: BLE001 : message à l'utilisateur
-                    GLib.idle_add(self.win.notify, str(e) or _("Échec"))
+                    notify_failure(self.win, e)
                 GLib.idle_add(self.done_action)
             threading.Thread(target=work, daemon=True).start()
         btn.connect("clicked", run)
@@ -242,7 +244,7 @@ class HomePage(Gtk.Box):
                 icon.set_from_icon_name(APP_ID)
             line.append(icon)
             texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER)
-            texts.append(Gtk.Label(label=w.get("title") or app, xalign=0, ellipsize=3))
+            texts.append(Gtk.Label(label=w.get("title") or app, xalign=0, ellipsize=Pango.EllipsizeMode.END))
             texts.append(dim((reg.get(app) or {}).get("name") or app))
             line.append(texts)
             rule = modes.get(power.canonical(app))
@@ -250,28 +252,6 @@ class HomePage(Gtk.Box):
             chip.set_tooltip_text(_("Mode d'affichage de cette application"))
             line.append(chip)
             self.windows_list.append(line)
-
-    # -- raccourcis --
-
-    def shortcuts_card(self):
-        box, _head = dash_card(_("Raccourcis"), "starred-symbolic", "amber")
-        flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=2, min_children_per_line=2,
-                           column_spacing=8, row_spacing=8, homogeneous=True)
-        for icon, color, label, action in (
-                ("system-software-install-symbolic", "purple", _("Installer une application"),
-                 lambda: self.go("install")),
-                ("folder-remote-symbolic", "blue", _("Partager un dossier"), lambda: self.go("folders")),
-                ("software-update-available-symbolic", "green", _("Mettre à jour Windows"), self.windows_update),
-                ("view-restore-symbolic", "teal", _("Réinitialiser l'affichage"), self.reset)):
-            btn = Gtk.Button()
-            inner = Gtk.Box(spacing=10, margin_top=2, margin_bottom=2)
-            inner.append(badge(icon, color, small=True))
-            inner.append(Gtk.Label(label=label, wrap=True, xalign=0))
-            btn.set_child(inner)
-            btn.connect("clicked", lambda _b, a=action: a())
-            flow.append(btn)
-        box.append(flow)
-        return box
 
     def windows_update(self):
         general = self.win.show_page("general")
@@ -282,91 +262,36 @@ class HomePage(Gtk.Box):
         if self.win.show_page(name) is None:
             self.win.notify(_("Cette page n'est pas disponible."))
 
-    def reset(self):
-        def done(res):
-            if res is None:
-                self.win.notify(_("Aucune fenêtre Windows ouverte."))
-            else:
-                self.win.notify(res.get("error") or _("{n} fenêtre(s) remise(s) en place.", n=res.get("count", 0)))
-        ask_host({"reset_windows": True}, done)
+    # -- affichage : résumé, le réglage est sur la page Affichage --
 
-    # -- performances --
-
-    def perf_card(self):
-        box, head = dash_card(_("Performances"), "power-profile-performance-symbolic", "green")
-        self.machine_scale, self.machine_hint = self.slider(
-            box, _("Performance de la machine"), [_(m[1]) for m in power.MACHINE], self.set_machine)
-        self.mode_scale, self.mode_hint = self.slider(
-            box, _("Performance d'affichage"), [_(m[1]) for m in power.MODES], self.set_mode)
-        # l'explication du réglage machine passe en info-bulle : l'Accueil tient sans défiler
-        self.machine_hint.set_visible(False)
-        more = Gtk.Button(label=_("Réglages de l'affichage"), valign=Gtk.Align.CENTER)
+    def display_card(self):
+        box, head = dash_card(_("Affichage"), "video-display-symbolic", "green")
+        more = Gtk.Button(label=_("Régler l'affichage"), valign=Gtk.Align.CENTER)
         more.connect("clicked", lambda *_a: self.go("display"))
         head.append(more)
+        self.mode_title = Gtk.Label(xalign=0)
+        self.mode_title.add_css_class("tile-value")
+        box.append(self.mode_title)
+        self.mode_hint = dim("")
+        box.append(self.mode_hint)
         return box
 
-    def slider(self, box, title, marks, on_change):
-        label = Gtk.Label(label=title, xalign=0, margin_top=4)
-        label.add_css_class("tile-value")
-        box.append(label)
-        scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, len(marks) - 1, 1)
-        scale.add_css_class("modes")
-        scale.set_draw_value(False)
-        scale.set_round_digits(0)
-        scale.set_margin_start(10)
-        scale.set_margin_end(10)
-        for i, mark in enumerate(marks):
-            scale.add_mark(i, Gtk.PositionType.BOTTOM, mark)
-        scale.connect("value-changed", lambda sc: self.syncing or on_change(round(sc.get_value())))
-        box.append(scale)
-        hint = dim("")
-        box.append(hint)
-        return scale, hint
-
-    def set_machine(self, i):
+    def show_display(self, state):
         cfg = vm.load_config()
-        key = power.MACHINE[i][0]
-        if cfg.get("resources") == key:
-            return
-        winctl.set_resources(key)
-        if vm.pid():
-            self.win.notify(_("Ce réglage prend effet au prochain démarrage de Windows."), _("Redémarrer"),
-                            self.win.restart_windows)
-
-    def set_mode(self, i):
-        cfg = vm.load_config()
-        if power.mode_index(cfg) == i:
-            return
-        restart = power.apply_mode(cfg, i)
-        vm.save_config(cfg)
-        if restart and vm.pid():
-            self.win.notify(_("Mode {mode} sélectionné. Redémarrez Windows pour appliquer tous les réglages "
-                              "de ce mode.",
-                              mode=_(power.MODES[i][1])), _("Redémarrer"), self.win.restart_windows)
-
-    def show_perf(self, state):
-        cfg = vm.load_config()
-        mi = power.machine_index(cfg)
         i = power.mode_index(cfg)
         p = ((state.get("host") or {}).get("power") or {})
-        self.machine_hint.set_label(_(power.MACHINE[mi][2]))
-        self.machine_scale.set_tooltip_text(_(power.MACHINE[mi][2]))
         if p.get("rule"):
             name = (desktop.load_registry().get(p.get("app")) or {}).get("name") or p.get("app") or ""
-            self.mode_hint.set_label(_("En ce moment : mode {mode}, défini pour l'application {app}.", app=name,
-                                       mode=_(next(m[1] for m in power.MODES if m[0] == p["rule"]))))
+            mode = _(next(m[1] for m in power.MODES if m[0] == p["rule"]))
+            self.mode_title.set_label(_("Mode {mode}", mode=mode))
+            self.mode_hint.set_label(_("Défini pour l'application {app}.", app=name))
         elif i is None:
+            self.mode_title.set_label(_("Réglages personnalisés"))
             self.mode_hint.set_label(_("Des réglages fins ont été modifiés dans les options avancées de la page "
                                        "Affichage."))
         else:
+            self.mode_title.set_label(_("Mode {mode}", mode=_(power.MODES[i][1])))
             self.mode_hint.set_label(_(power.MODES[i][2]))
-        self.syncing = True
-        try:
-            self.machine_scale.set_value(mi)
-            if i is not None:
-                self.mode_scale.set_value(i)
-        finally:
-            self.syncing = False
 
     def update(self, state):
         p = phase(state)
@@ -374,4 +299,4 @@ class HomePage(Gtk.Box):
         self.refresh_windows(p == "ready")
         self.show_alerts(p == "ready")
         self.live.refresh(state)
-        self.show_perf(state)
+        self.show_display(state)

@@ -113,7 +113,7 @@ MODES = [
 # curseur « Performance de la machine » : cœurs et mémoire de Windows (vm.RESOURCES), au démarrage
 MACHINE = [
     ("battery", N_("Économie"), N_("4 cœurs et 6 Go : Windows utilise peu de ressources de l'ordinateur.")),
-    ("balanced", N_("Équilibré"), N_("8 cœurs et 8 Go : réglage adapté à un usage courant.")),
+    ("balanced", N_("Équilibré"), N_("4 cœurs et 8 Go : réglage adapté à un usage courant.")),
     ("performance", N_("Performances"), N_("12 cœurs et 12 Go : réglage adapté à Power BI et aux classeurs "
                                            "volumineux.")),
 ]
@@ -156,7 +156,12 @@ def capture_message(cfg, profile):
     timer = cfg.get("timer") if cfg.get("timer") in TIMERS else "auto"
     on = timer == "always" or (timer == "auto" and profile != "battery")
     ms = cfg.get("occluded_ms")
-    return {"t": "capture", "occluded_ms": ms if ms in OCCLUDED_CHOICES else OCCLUDED_MS[profile],
+    ms = ms if ms in OCCLUDED_CHOICES else OCCLUDED_MS[profile]
+    if profile == "battery" and timer != "always":
+        # sur batterie, un délai court ne l'emporte sur l'autonomie qu'en mode Fluide (minuterie
+        # « always ») : ce mode prévient qu'il décharge plus vite
+        ms = max(ms, OCCLUDED_MS["battery"])
+    return {"t": "capture", "occluded_ms": ms,
             "timer_ms": 1 if on else 0}
 
 

@@ -27,3 +27,6 @@ def test_capture_message():
     assert power.capture_message({"timer": "never", "occluded_ms": 250}, "performance") == \
         {"t": "capture", "occluded_ms": 250, "timer_ms": 0}
     assert power.capture_message({"occluded_ms": 7}, "balanced")["occluded_ms"] == 500
+    # batterie : 250 ms choisi à la main remonte à 1000, sauf en mode Fluide
+    assert power.capture_message({"occluded_ms": 250}, "battery")["occluded_ms"] == 1000
+    assert power.capture_message(power.mode_values("smooth"), "battery")["occluded_ms"] == 250

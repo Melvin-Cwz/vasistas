@@ -84,9 +84,11 @@ MEMORY = "6G" if PROFILE else "8G"  # profil expérimental : tourne à côté de
 CPUS = 8
 # Ressources de la VM, choisies dans l'application compagnon (config.json « resources »),
 # appliquées au démarrage suivant : cœurs, mémoire
+# Équilibré à 4 cœurs depuis la 0.10 : chaque vCPU coûte des réveils et des sorties KVM au repos,
+# et 8 n'accéléraient pas l'affichage (DWM en WARP plafonne avant) ; 8 et plus en Performance
 RESOURCES = {
     "battery": (4, "6G"),
-    "balanced": (CPUS, MEMORY),
+    "balanced": (4, MEMORY),
     "performance": (12, "12G"),
 }
 
@@ -256,8 +258,6 @@ def qemu_args(install: bool, card=None) -> list:
         "-drive", f"if=none,id=disk,file={DISK},format=qcow2,cache=none,discard=unmap,"
                   "detect-zeroes=unmap,l2-cache-size=12M",
         "-device", "virtio-blk-pci,drive=disk,iothread=io0,bootindex=1",
-        "-drive", f"if=none,id=virtio,media=cdrom,readonly=on,file={VIRTIO_ISO}",
-        "-device", "ide-cd,drive=virtio,bus=ide.1",
         "-drive", f"if=none,id=share,media=cdrom,readonly=on,file={SHARE}",
         "-device", "ide-cd,drive=share,bus=ide.2",
         # imprimantes de Linux (printers.py) : redirection vers CUPS, sans l'exposer au réseau
@@ -270,7 +270,6 @@ def qemu_args(install: bool, card=None) -> list:
         *(["-device", "virtio-vga-gl,hostmem=4G,blob=on,venus=on"]
           if PROFILE == "yttrium" and not os.environ.get("VASISTAS_NO_VENUS")
           else ["-device", f"virtio-vga,xres={SCREEN[0]},yres={SCREEN[1]}"]),
-        "-device", "qemu-xhci", "-device", "usb-tablet",
         *sound_args(),
         # ballon piloté par balloon.py (le pilote Windows ignore free-page-reporting, sans effet mais sans gêne)
         "-device", "virtio-balloon-pci,id=balloon0,free-page-reporting=on",
@@ -291,7 +290,15 @@ def qemu_args(install: bool, card=None) -> list:
     args += [
         "-pidfile", str(PIDFILE),
     ]
+    if install or load_config().get("virtio_cd"):
+        # pilotes virtio : CD branché seulement à l'installation (ou config « virtio_cd ») ; Windows
+        # interroge un lecteur CD toutes les secondes, chacun réveille la VM
+        args += ["-drive", f"if=none,id=virtio,media=cdrom,readonly=on,file={VIRTIO_ISO}",
+                 "-device", "ide-cd,drive=virtio,bus=ide.1"]
     if install:
+        # tablette USB pour l'affichage GTK de l'installation ; ensuite l'agent place lui-même la
+        # souris (SendInput) et la souris PS/2 de q35 suffit à Windows pour afficher le pointeur
+        args += ["-device", "qemu-xhci", "-device", "usb-tablet"]
         args += [
             "-drive", f"if=none,id=wincd,media=cdrom,readonly=on,file={WIN_ISO}",
             "-device", "ide-cd,drive=wincd,bus=ide.0,bootindex=0",

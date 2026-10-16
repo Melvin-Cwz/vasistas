@@ -8,7 +8,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Granite", "7.0")
 gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, GLib, Granite, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Granite, Gtk, Pango  # noqa: E402
 
 # partagés avec l'indicateur du panneau (winctl.py, sans GTK)
 from .i18n import _  # noqa: E402
@@ -138,10 +138,8 @@ class Page(Cards, Gtk.Box):
         self.status_dot.set_css_classes(["live-dot"] + ([] if on else ["warn"] if warn else ["off"]))
 
     def add_help(self, on_click):
-        """Bouton « ? » à droite de l'en-tête : ouvre l'aide de la page."""
-        btn = Gtk.Button(label="?", valign=Gtk.Align.CENTER, tooltip_text=_("Aide sur cette page"))
-        btn.add_css_class(Granite.STYLE_CLASS_CIRCULAR)
-        btn.connect("clicked", lambda *_a: on_click())
+        """Bouton d'aide à droite de l'en-tête : ouvre l'aide de la page."""
+        btn = help_button(on_click)
         self.head.append(btn)
         return btn
 
@@ -294,7 +292,7 @@ def tile(name):
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
     box.add_css_class("tile")
     box.append(dim(name))
-    value = Gtk.Label(xalign=0, label="–", ellipsize=3)
+    value = Gtk.Label(xalign=0, label="–", ellipsize=Pango.EllipsizeMode.END)
     value.add_css_class("tile-value")
     box.append(value)
     return box, value
@@ -336,6 +334,32 @@ def confirm(parent, title, detail, action_label, on_yes, destructive=True, icon=
     dlg.connect("response", answered)
     dlg.present()
     return dlg
+
+
+def help_button(on_click):
+    """Bouton d'aide d'une page (icône du système, nom lu par le lecteur d'écran)."""
+    btn = Gtk.Button(icon_name="help-contents-symbolic", valign=Gtk.Align.CENTER,
+                     tooltip_text=_("Aide sur cette page"))
+    btn.add_css_class(Granite.STYLE_CLASS_CIRCULAR)
+    btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Aide sur cette page")])
+    btn.connect("clicked", lambda *_a: on_click())
+    return btn
+
+
+def failure(e):
+    """Message d'échec lisible : la cause probable et quoi faire, plutôt que l'exception brute."""
+    if isinstance(e, (FileNotFoundError, ConnectionRefusedError)):
+        return _("Vasistas ne répond pas. Relancez une application Windows ou ouvrez le diagnostic.")
+    if isinstance(e, TimeoutError):
+        return _("Windows n'a pas répondu à temps. Réessayez dans un instant.")
+    if isinstance(e, PermissionError):
+        return _("Accès refusé. Ouvrez le diagnostic pour vérifier l'installation.")
+    return _("Échec : {e}", e=e) if str(e) else _("Échec")
+
+
+def notify_failure(win, e):
+    """Toast d'échec avec un raccourci vers le diagnostic (depuis n'importe quel fil)."""
+    GLib.idle_add(win.notify, failure(e), _("Diagnostic"), lambda: win.show_page("diagnose"))
 
 
 def row(title, subtitle, widget):

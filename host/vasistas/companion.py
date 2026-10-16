@@ -36,7 +36,7 @@ settingspage .header-area label:not(.title-2), simplesettingspage .header-area l
 settingspage .header-area, simplesettingspage .header-area, settingspage .content-area, simplesettingspage .content-area { padding: 1rem; }
 settingspage .buttonbox, simplesettingspage .buttonbox { padding: 1rem; border-spacing: 0.5rem; }
 scale.modes trough { min-height: 6px; border-radius: 3px; background-color: transparent;
-  background-image: linear-gradient(to right, #57C98A, #6FA8FF 50%, #F0B45A); }
+  background-image: linear-gradient(to right, #68B723, #64BAFF 50%, #FFA154); }  /* Lime 500, Blueberry 300, Orange 300 */
 scale.modes highlight { opacity: 0; }
 scale.modes slider { min-width: 22px; min-height: 22px; }
 .dash-card { padding: 18px; }
@@ -57,10 +57,12 @@ scale.modes slider { min-width: 22px; min-height: 22px; }
 
 
 class Window(Gtk.ApplicationWindow):
+    # cinq onglets au plus : au-delà, la barre de titre ne tient plus en français et la fenêtre ne
+    # rétrécit plus ; Restauration (rare) passe dans le menu
     PRIMARY = [("home", N_("Accueil")), ("apps", N_("Applications")), ("files", N_("Fichiers")),
-               ("display", N_("Affichage")), ("windows", "Windows"), ("restoration", N_("Restauration"))]
-    SECONDARY = [("settings", N_("Préférences")), ("help", N_("Aide et diagnostic")),
-                 ("about", N_("À propos"))]
+               ("display", N_("Affichage")), ("windows", "Windows")]
+    SECONDARY = [("restoration", N_("Restauration")), ("settings", N_("Préférences")),
+                 ("help", N_("Aide et diagnostic")), ("about", N_("À propos"))]
 
     def __init__(self, app):
         super().__init__(application=app, title="Vasistas", default_width=960, default_height=680,
@@ -133,7 +135,7 @@ class Window(Gtk.ApplicationWindow):
         # page d'ouverture (indicateur, aide, essais) : VASISTAS_PAGE=<nom>
         start = os.environ.get("VASISTAS_PAGE")
         if start and self.stack.get_child_by_name(start):
-            # après la barre latérale, qui choisit sa première ligne en se construisant
+            # après la construction des onglets, qui allument le premier
             self.connect("map", lambda *_: GLib.timeout_add(100, lambda: self.show_page(start) and False))
 
         # bandeau « nouvelle version », au-dessus des pages
@@ -223,8 +225,8 @@ class Window(Gtk.ApplicationWindow):
              "advanced": ("help", None), "diagnose": ("help", "diagnose"), "maintenance": ("help", "maintenance")}
 
     def show_page(self, name):
-        """Affiche la page `name` (ou l'onglet, le sujet d'Avancé qui porte ce nom) et choisit sa
-        ligne dans la barre latérale ; renvoie la page ou la section, None si elle n'existe pas."""
+        """Affiche la page `name` (ou l'onglet, le sujet d'Avancé qui porte ce nom) et allume son
+        onglet ; renvoie la page ou la section, None si elle n'existe pas."""
         name, sub = self.MOVED.get(name, (name, None))
         page = self.page(name)
         if page is None:
@@ -305,6 +307,10 @@ class App(Gtk.Application):
             self.add_action(act)
             if accels:
                 self.set_accels_for_action(f"app.{name}", accels)
+        # Ctrl+1…5 : onglets, Ctrl+, : Préférences (habitude des applications du bureau)
+        for i, (name, _label) in enumerate(Window.PRIMARY, 1):
+            self.set_accels_for_action(f"win.page::{name}", [f"<Control>{i}"])
+        self.set_accels_for_action("win.page::settings", ["<Control>comma"])
 
     def do_command_line(self, cmdline):
         args = cmdline.get_arguments()[1:]

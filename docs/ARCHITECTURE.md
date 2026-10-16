@@ -27,7 +27,7 @@
   d'ouvrir une copie dans Téléchargements ou de partager le dossier (ajouté sans redémarrer Windows).
   Types absents de la base MIME (.msg, .pbix, .pbit, .pbids) déclarés dans
   `~/.local/share/mime/packages/<APP_ID>.xml`.
-- **Dossiers de Windows** (`host/vasistas/folders.py`, page Windows du compagnon) :
+- **Dossiers de Windows** (`host/vasistas/folders.py`, page Fichiers du compagnon) :
   Documents, Téléchargements, Images, Musique, Vidéos et Bureau de Windows peuvent pointer
   vers les dossiers Linux (SHSetKnownFolderPath), que Vasistas partage si nécessaire. L'ancien
   chemin est conservé pour pouvoir revenir en arrière.

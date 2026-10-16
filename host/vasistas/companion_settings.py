@@ -29,7 +29,8 @@ class SettingsPage(Page):
         self.win = win
         cfg = vm.load_config()
 
-        self.header(_("Démarrage"))
+        # trois cartes au lieu de cinq : Démarrage et panneau, Apparence et langue, Mises à jour
+        self.header(_("Démarrage et panneau"))
         auto = Gtk.Switch(active=os.path.exists(AUTOSTART))
         auto.connect("notify::active", self.on_autostart)
         self.add(row(_("Préparer Windows à l'ouverture de session"),
@@ -42,7 +43,6 @@ class SettingsPage(Page):
                        "s'ouvre presque immédiatement, et Windows n'utilise pas le processeur en "
                        "attendant."), self.boot_sleep))
 
-        self.header(_("Panneau"))
         from . import indicator
         ind = Gtk.Switch(active=indicator.enabled())
         ind.connect("notify::active", lambda sw, _p: indicator.set_enabled(sw.get_active()))
@@ -50,7 +50,7 @@ class SettingsPage(Page):
                      _("Vasistas affiche en haut de l'écran l'état de Windows, les applications récentes et les "
                        "commandes de Windows."), ind))
 
-        self.header(_("Apparence"))
+        self.header(_("Apparence et langue"))
         themes = [None, "light", "dark"]
         current = cfg.get("companion_theme") if cfg.get("companion_theme") in themes else None
 
@@ -61,7 +61,6 @@ class SettingsPage(Page):
                      _("Thème clair, thème sombre ou thème du système (réglage d'elementary OS)."),
                      dropdown([_("Comme le système"), _("Clair"), _("Sombre")], themes.index(current), on_theme)))
 
-        self.header(_("Langue"))
         from . import i18n
         values = list(i18n.LANGUAGES)
 

@@ -5,7 +5,7 @@ import threading
 
 from .companion_common import Section, card, clear, dim, guest_ready, row  # versions de Gtk et Granite fixées
 
-from gi.repository import GLib, Granite, Gtk  # noqa: E402
+from gi.repository import GLib, Granite, Gtk, Pango  # noqa: E402
 
 from . import control, printers, vm  # noqa: E402
 from .i18n import _  # noqa: E402
@@ -78,7 +78,7 @@ class PrintersPage(Section):
             if p["default"]:
                 title += " · " + _("par défaut sous Linux")
             labels.append(Gtk.Label(label=title, xalign=0))
-            sub = Gtk.Label(label=p["uri"], xalign=0, ellipsize=3)
+            sub = Gtk.Label(label=p["uri"], xalign=0, ellipsize=Pango.EllipsizeMode.END)
             sub.add_css_class(Granite.STYLE_CLASS_DIM_LABEL)
             sub.add_css_class(Granite.STYLE_CLASS_SMALL_LABEL)
             labels.append(sub)

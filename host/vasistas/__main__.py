@@ -90,7 +90,7 @@ def main(argv=None):
     p_slim = sub.add_parser("slim", help=_("alléger Windows (télémétrie, applications, services)"))
     p_slim.add_argument("action", choices=["status", "apply", "restore", "snapshot", "rollback", "list"])
     p_slim.add_argument("keys", nargs="*", help=_("éléments à alléger, ou option --level"))
-    p_slim.add_argument("--level", type=int, choices=[1, 2, 3])
+    p_slim.add_argument("--level", type=int, choices=[1, 2, 3, 4, 5])
     p_rest = sub.add_parser("restore", help=_("points de restauration du disque de Windows"))
     p_rest.add_argument("action", choices=["list", "create", "revert", "delete"])
     p_rest.add_argument("name", nargs="?", help=_("nom du point (create : facultatif)"))

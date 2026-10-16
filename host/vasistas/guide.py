@@ -55,8 +55,8 @@ SECTIONS = [
         "Windows de Vasistas environ une fois par mois. Vasistas recherche automatiquement ses propres nouvelles "
         "versions ; le bouton « Rechercher maintenant » de la page Préférences lance une recherche immédiate.")),
     ("restore", "document-revert", N_("Points de restauration"),
-     N_("Un point de restauration enregistre l'état de tout le disque de Windows. Créez-en un dans l'onglet "
-        "Restauration avant un changement risqué. Si vous cochez l'option, Vasistas crée aussi automatiquement un "
+     N_("Un point de restauration enregistre l'état de tout le disque de Windows. Créez-en un dans la page "
+        "Restauration (menu de Vasistas) avant un changement risqué. Si vous cochez l'option, Vasistas crée aussi automatiquement un "
         "point de restauration avant Windows Update et avant l'installation d'une application, et conserve les trois "
         "derniers points automatiques ; les points de restauration créés manuellement sont conservés jusqu'à ce que "
         "vous les supprimiez. Si Windows ne fonctionne plus correctement après un changement, revenez au point de "

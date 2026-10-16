@@ -6,7 +6,7 @@ import threading
 from gi.repository import GLib, Gtk
 
 from . import desktop, files
-from .companion_common import Section, card, clear, dim, mode_chip
+from .companion_common import Section, card, clear, dim, mode_chip, notify_failure
 from .i18n import _
 
 THEME_ICONS = {app: icon for _, app, _, icon in desktop.APPS}
@@ -128,7 +128,7 @@ class FilesPage(Section):
                 work()
                 GLib.idle_add(self.win.notify, message)
             except Exception as e:  # noqa: BLE001
-                GLib.idle_add(self.win.notify, _("Échec : {e}", e=e))
+                notify_failure(self.win, e)
             GLib.idle_add(self.done)
         threading.Thread(target=job, name="vasistas-files", daemon=True).start()
 

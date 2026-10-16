@@ -1,4 +1,32 @@
 {
+  "0.10.0": {
+    "fr": [
+      "Windows consomme moins : 4 cœurs par défaut en mode Équilibré au lieu de 8 (8 et plus restent disponibles en mode Performances), sans lecteur CD des pilotes ni tablette USB une fois Windows installé.",
+      "Windows est mis en veille dès que l'écran se verrouille et reprend au déverrouillage (réglage dans Affichage > Options avancées).",
+      "Sur batterie, Windows s'arrête après 5 minutes sans fenêtre ouverte (réglable).",
+      "Sur batterie, les fenêtres recouvertes sont rafraîchies au plus une fois par seconde, même si un délai plus court a été choisi, sauf en mode Fluide.",
+      "Allègement : nouveaux éléments (tâches de fond secondaires, services rarement utiles, surveillance des lecteurs CD, OneDrive dans Windows) et, à part, Defender coupé.",
+      "Nouvel élément d'allègement « Élévation sans confirmation » : Windows refuse les clics transmis par Vasistas dans les fenêtres de contrôle de compte, qui restaient bloquées.",
+      "Ce que Windows rétablit de lui-même après une mise à jour (services, applications) est allégé de nouveau, au plus une fois par jour.",
+      "Allègement : niveau Ultra, pour un Windows qui ne sert qu'à Office et Power BI.",
+      "La mémoire prêtée à Windows est de nouveau rendue à Linux quand les compteurs de Windows se bloquent : Vasistas les répare seul.",
+      "Les menus plus hauts que l'écran, comme la liste des polices d'Office, s'ouvrent au lieu de rester invisibles.",
+      "Application Vasistas : cinq onglets (Restauration passe dans le menu), Clavier et Imprimantes visibles sur la page Windows, Accueil simplifié, Ctrl+1 à Ctrl+5 pour changer d'onglet."
+    ],
+    "en": [
+      "Windows uses less power: 4 cores by default in Balanced mode instead of 8 (8 and more remain available in Performance mode), with no driver CD drive or USB tablet once Windows is installed.",
+      "Windows goes to sleep as soon as the screen locks and resumes when you unlock (setting in Display > Advanced options).",
+      "On battery, Windows shuts down after 5 minutes with no window open (adjustable).",
+      "On battery, covered windows are refreshed at most once per second, even if a shorter delay was chosen, except in Smooth mode.",
+      "Slimming: new items (minor background tasks, rarely useful services, CD drive polling, OneDrive in Windows) and, separately, Defender off.",
+      "New slimming item “Elevation without confirmation”: Windows rejects the clicks Vasistas forwards to User Account Control windows, which stayed stuck.",
+      "Whatever Windows restores on its own after an update (services, apps) is slimmed again, at most once a day.",
+      "Slimming: Ultra level, for a Windows used only for Office and Power BI.",
+      "Memory lent to Windows is given back to Linux again when Windows counters get stuck: Vasistas repairs them on its own.",
+      "Menus taller than the screen, such as the Office font list, now open instead of staying invisible.",
+      "Vasistas app: five tabs (Restore moves to the menu), Keyboard and Printers visible on the Windows page, simpler Home, Ctrl+1 to Ctrl+5 to switch tabs."
+    ]
+  },
   "0.9.4": {
     "fr": [
       "Relecture des textes français de l'application et de la documentation.",

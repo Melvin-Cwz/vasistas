@@ -20,7 +20,7 @@ HOST_DIR = Path(__file__).resolve().parents[1]
 # puissance allouée à Windows (config.json « resources », voir vm.RESOURCES) : clé, nom, détail
 RESOURCES = [
     ("battery", N_("Économie d'énergie"), N_("4 cœurs, 6 Go de mémoire : la batterie dure plus longtemps")),
-    ("balanced", N_("Équilibré"), N_("8 cœurs, 8 Go de mémoire")),
+    ("balanced", N_("Équilibré"), N_("4 cœurs, 8 Go de mémoire")),
     ("performance", N_("Performances"), N_("12 cœurs, 12 Go de mémoire : pour Power BI et les classeurs volumineux")),
 ]
 

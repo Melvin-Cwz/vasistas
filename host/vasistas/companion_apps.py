@@ -4,7 +4,7 @@ Applications, ajout des autres, icônes, version d'Outlook, options des lanceurs
 import base64
 import threading
 
-from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Granite, Gtk
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Granite, Gtk, Pango
 
 from . import desktop, guestapps, vm
 from .companion_common import Section, advanced_card, card, clear, guest_ready, row, spawn, texture_from_b64
@@ -142,7 +142,7 @@ class AppsPage(Section):
         icon = Gtk.Image(pixel_size=32)
         self.set_row_icon(icon, a)
         box.append(icon)
-        box.append(Gtk.Label(label=name, xalign=0, hexpand=True, ellipsize=3))
+        box.append(Gtk.Label(label=name, xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END))
 
         if app in desktop.VARIANTS:
             choices = list(desktop.VARIANTS[app])

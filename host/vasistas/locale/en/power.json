@@ -46,6 +46,6 @@
   "Windows vise 60 images par seconde en permanence, fenêtres cachées comprises. Adapté à Power BI, aux vidéos et aux longs défilements.": "Windows aims for 60 frames per second all the time, hidden windows included. For Power BI, videos and long scrolls.",
   "Batterie : se décharge plus vite, même lorsque Windows est inactif.": "Battery: drains faster, even when Windows is idle.",
   "4 cœurs et 6 Go : Windows utilise peu de ressources de l'ordinateur.": "4 cores and 6 GB: Windows uses few of the computer's resources.",
-  "8 cœurs et 8 Go : réglage adapté à un usage courant.": "8 cores and 8 GB: suited to everyday use.",
+  "4 cœurs et 8 Go : réglage adapté à un usage courant.": "4 cores and 8 GB: suited to everyday use.",
   "12 cœurs et 12 Go : réglage adapté à Power BI et aux classeurs volumineux.": "12 cores and 12 GB: for Power BI and big workbooks."
 }

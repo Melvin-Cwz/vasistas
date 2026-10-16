@@ -8,7 +8,7 @@ import time
 from gi.repository import GLib, Granite, Gtk
 
 from . import control, desktop, power, vm
-from .companion_common import (advanced_card, card, clear, columns, dash_card, dim, guest_ready, mode_chip, row, texture_from_b64,
+from .companion_common import (advanced_card, help_button, card, clear, columns, dash_card, dim, guest_ready, mode_chip, row, texture_from_b64,
                                tile)
 from .i18n import N_, _
 from .winctl import APP_ID
@@ -236,22 +236,22 @@ class PerformancePage(Gtk.Box):
         right.append(self.options_card())
         from .companion_advanced import FineTuneSection
         from .companion_screens import ScreensPage
-        self.sections = {"finetune": FineTuneSection(win), "screens": ScreensPage(win)}
-        self.advanced = advanced_card(*self.sections.values())
+        # Écrans et fenêtres : réglage courant, visible ; seuls les réglages fins restent repliés
+        self.sections = {"screens": ScreensPage(win), "finetune": FineTuneSection(win)}
+        outer.append(self.sections["screens"])
+        self.advanced = advanced_card(self.sections["finetune"])
         outer.append(self.advanced)
         self.connect("map", lambda *_a: self.sync())
         self.sync()
 
     def open_sub(self, name):
         section = self.sections.get(name)
-        if section is not None:
+        if name == "finetune":
             self.advanced.get_first_child().set_expanded(True)
         return section
 
     def add_help(self, on_click):
-        btn = Gtk.Button(label="?", valign=Gtk.Align.CENTER, tooltip_text=_("Aide sur cette page"))
-        btn.add_css_class(Granite.STYLE_CLASS_CIRCULAR)
-        btn.connect("clicked", lambda *_a: on_click())
+        btn = help_button(on_click)
         self.mode_head.append(btn)
         return btn
 
@@ -294,6 +294,8 @@ class PerformancePage(Gtk.Box):
                                        "curseur pour revenir à l'un des trois modes prédéfinis."))
             return
         key, _n, what, _b, _p, _v, _pr = power.MODES[index]
+        # lecteur d'écran : le nom du mode plutôt que la position 0, 1 ou 2 du curseur
+        self.scale.update_property([Gtk.AccessibleProperty.VALUE_TEXT], [_(power.MODES[index][1])])
         for value, text in zip(self.tiles, TILES[key]):
             value.set_label(_(text))
         for t in self.tile_boxes:

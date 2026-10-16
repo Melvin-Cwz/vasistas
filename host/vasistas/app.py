@@ -948,6 +948,21 @@ class VasistasApp(Gtk.Application):
             GLib.source_remove(self.ready_timeout)
             self.ready_timeout = 0
         self._flush_launches()
+        if not getattr(self, "slim_kept", False) and not os.environ.get("VASISTAS_SOCKET"):
+            self.slim_kept = True
+            threading.Thread(target=self._slim_keep_up, name="vasistas-slim", daemon=True).start()
+
+    @staticmethod
+    def _slim_keep_up():
+        # après l'ouverture de session et les premiers lancements
+        time.sleep(60)
+        from . import slim
+        try:
+            keys = slim.keep_up()
+            if keys:
+                log.info("allègement réappliqué (défait par Windows) : %s", ", ".join(keys))
+        except Exception as e:  # noqa: BLE001 - jamais bloquant
+            log.warning("allègement : %s", e)
 
     # -- mesure de latence : touche envoyée -> zone modifiée dans la fenêtre --
 

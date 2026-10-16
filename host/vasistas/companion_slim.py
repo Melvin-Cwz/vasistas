@@ -39,8 +39,8 @@ class SlimPage(Section):
         self.measure = self.add(Gtk.Label(xalign=0, wrap=True))
         self.baseline = self.add(dim(""))
 
-        # niveau Maximal pas encore vérifié : ses éléments restent dans « Personnaliser… »
-        levels = [n for n in slim.LEVELS if n < 3]
+        # Maximal et Sans antivirus restent dans « Personnaliser… » ; Ultra les comprend
+        levels = [1, 2, 5]
         drop = Gtk.DropDown.new_from_strings([_(slim.LEVELS[n]) for n in levels])
         drop.set_selected(1)
         go = Gtk.Button(label=_("Appliquer ce niveau"))
@@ -49,7 +49,8 @@ class SlimPage(Section):
         lv.append(drop)
         lv.append(go)
         self.add(row(_("Niveau"), _("Léger : retire la collecte de données et la publicité. Fort : retire aussi les "
-                                    "services et les applications qui ne servent pas avec Vasistas."), lv))
+                                    "services et les applications qui ne servent pas avec Vasistas. Ultra : ne garde que ce "
+                                    "qu'utilisent Office et Power BI, Defender compris."), lv))
 
         # détail : chaque élément, à cocher un par un
         detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=6)
@@ -71,7 +72,7 @@ class SlimPage(Section):
                 sub = _(it["subtitle"]) + ("" if it.get("reversible", True)
                                            else _(". Suppression définitive : réinstallation possible depuis le "
                                                   "Store ou en revenant au point de restauration"))
-                if it["level"] == 3:
+                if it["level"] >= 3:
                     sub += _(". Expérimental : réglage pas encore vérifié, créez d'abord un point de restauration")
                 r = row(_(it["title"]), sub, end)
                 r.set_margin_start(6)

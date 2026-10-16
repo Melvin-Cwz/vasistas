@@ -113,6 +113,15 @@ class GuestView(Gtk.Picture):
         scroll.connect("scroll", self._on_scroll)
         self.add_controller(scroll)
 
+    # taille logique voulue d'un menu : le bureau peut la réduire (liste des polices
+    # d'Office plus haute que l'écran), sinon GTK ne montre pas le popover
+    natural = None
+
+    def do_measure(self, orientation, for_size):
+        if self.natural is None:
+            return 0, 0, -1, -1  # comme Gtk.Picture sans paintable
+        return 1, self.natural[0 if orientation == Gtk.Orientation.HORIZONTAL else 1], -1, -1
+
     def set_texture(self, texture):
         """Image propre à la fenêtre (tuiles de l'agent)."""
         self.texture = texture
@@ -806,7 +815,9 @@ class GuestPopup(Gtk.Popover):
         # échelle à laquelle Windows dessine le menu
         s = self.guest_scale()
         lw, lh = max(1, round(w / s)), max(1, round(h / s))
-        self.view.set_size_request(lw, lh)
+        if self.view.natural != (lw, lh):
+            self.view.natural = (lw, lh)
+            self.view.queue_resize()
         rect = Gdk.Rectangle()
         rect.x = round((x - ox) / s)
         rect.y = round((y - oy) / s) - 1

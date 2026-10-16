@@ -18,18 +18,29 @@ import time
 
 from gi.repository import GLib
 
-from . import vm
+from . import control, vm
 
 log = logging.getLogger(__name__)
 
 MB = 2 ** 20
 INTERVAL_S = 10
-MIN_TARGET = 3072 * MB     # jamais moins pour Windows
-MARGIN_MIN = 1536 * MB     # marge au-dessus de l'usage réel
-MARGIN_RATIO = 0.4
+MIN_TARGET = 2048 * MB     # jamais moins pour Windows
+MARGIN_MIN = 1024 * MB     # marge au-dessus de l'usage réel (un lancement rend tout d'avance)
+MARGIN_RATIO = 0.25
 INFLATE_STEP = 1024 * MB   # reprise progressive
 HYSTERESIS = 512 * MB
 BOOST_S = 90               # après un lancement : pas de reprise pendant ce temps
+UNSET = 2 ** 64 - 1        # statistique que le service Balloon n'a pas pu lire
+REPAIR_S = 3600
+# Windows coupe les compteurs PerfOS si perfos.dll plante une fois (Perflib 1010/1017, vu le
+# 2026-10-13) ; le service Balloon lit sa mémoire par ces compteurs WMI et n'envoie plus que UNSET
+REPAIR_PS = r"""
+Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\PerfOS\Performance 'Disable Performance Counters' 0
+lodctr /R | Out-Null
+winmgmt /resyncperf | Out-Null
+Restart-Service Winmgmt -Force
+Restart-Service BalloonService -Force
+"""
 
 
 def enabled():
@@ -49,6 +60,7 @@ class BalloonManager:
         self.path = None
         self.max = None
         self.boost_until = 0.0
+        self.repaired = 0.0
         self.lock = threading.Lock()
         GLib.timeout_add_seconds(INTERVAL_S, self._tick)
 
@@ -93,6 +105,10 @@ class BalloonManager:
                 if time.time() - res["last-update"] > 30:
                     return  # pilote muet (Windows qui démarre)
                 s = res["stats"]
+                if s.get("stat-total-memory") == UNSET:
+                    # hors du verrou : la réparation dure jusqu'à 2 min et boost() doit rester possible
+                    threading.Thread(target=self._repair, daemon=True).start()
+                    return
                 actual = self._qmp("query-balloon")["actual"]
                 # le total vu par Windows ne baisse pas avec le ballon ; « disponible » oui
                 used = s["stat-total-memory"] - s["stat-available-memory"] - (self.max - actual)
@@ -113,6 +129,16 @@ class BalloonManager:
             except (OSError, EOFError, RuntimeError, KeyError, TimeoutError) as e:
                 log.debug("ballon : %s", e)
                 self.path = None
+
+    def _repair(self):
+        if time.monotonic() - self.repaired < REPAIR_S:
+            return
+        self.repaired = time.monotonic()
+        log.warning("ballon : statistiques de Windows illisibles, compteurs PerfOS réparés")
+        try:
+            control.request({"exec": REPAIR_PS}, timeout=120)
+        except (OSError, EOFError, RuntimeError, TimeoutError) as e:
+            log.debug("ballon : réparation : %s", e)
 
     def _cap(self):
         power = getattr(self.app.sleep, "power", None) if self.app.sleep else None

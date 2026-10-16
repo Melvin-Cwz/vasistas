@@ -70,11 +70,23 @@ class FineTuneSection(Section):
                   title=_("Arrêter Windows sans fenêtre ouverte après"),
                   sub=_("Vasistas arrête proprement Windows lorsqu'aucune application Windows n'est ouverte pendant ce "
                         "délai. Windows redémarre automatiquement à l'ouverture de la prochaine application Windows."))
+        bat_off = [(m, _("Jamais") if not m else _("{n} minutes", n=m)) for m in sleep.BATTERY_SHUTDOWN_CHOICES]
+        self.drop("battery_shutdown_min", [t for _v, t in bat_off], [v for v, _t in bat_off],
+                  title=_("Sur batterie, arrêter Windows sans fenêtre ouverte après"),
+                  sub=_("Sur batterie, Windows ne reste pas allumé quand aucune application Windows n'est ouverte. Il "
+                        "redémarre à l'ouverture de la prochaine application Windows."))
         bat = self.battery_only = Gtk.Switch()
         bat.connect("notify::active", lambda sw, _p: self.syncing or self.save("sleep_on_battery_only",
                                                                                sw.get_active()))
         self.add(row(_("Veille et arrêt seulement sur batterie"),
                      _("Sur secteur, Windows reste éveillé tant qu'une fenêtre Windows est ouverte."), bat))
+        locked = self.when_locked = Gtk.Switch()
+        locked.connect("notify::active", lambda sw, _p: self.syncing or self.save("sleep_when_locked",
+                                                                                  sw.get_active()))
+        self.add(row(_("Mettre en veille à l'écran verrouillé"),
+                     _("Windows est mis en veille dès que l'écran se verrouille, sur secteur comme sur batterie, "
+                       "et reprend au déverrouillage. Les notifications de Windows attendent le déverrouillage."),
+                     locked))
 
         back = Gtk.Button(label=_("Revenir au mode Équilibré"))
         back.connect("clicked", lambda *_a: self.reset())
@@ -129,6 +141,7 @@ class FineTuneSection(Section):
                 d.set_selected(values.index(v) if v in values else 0)
             self.auto.set_active(cfg.get("resources_auto", True) is not False)
             self.battery_only.set_active(sleep.settings()["sleep_on_battery_only"])
+            self.when_locked.set_active(sleep.settings()["sleep_when_locked"])
         finally:
             self.syncing = False
         self.banner.refresh()

@@ -6,7 +6,7 @@ import threading
 from gi.repository import GLib, Granite, Gtk
 
 from . import catalog, regional
-from .companion_common import Section, card, dim, guest_ready, row
+from .companion_common import Section, card, dim, guest_ready, row, failure
 from .i18n import N_, _
 
 MATCH_OS = catalog.MATCH_OS
@@ -286,7 +286,7 @@ class InstallPage(Section):
             try:
                 msg = work()
             except Exception as e:  # noqa: BLE001 - affiché à l'utilisateur
-                msg = _("Échec : {e}", e=e)
+                msg = failure(e)
             GLib.idle_add(self.win.notify, msg)
             GLib.idle_add(self.done, refresh)
         threading.Thread(target=job, name="vasistas-install", daemon=True).start()

@@ -5,7 +5,7 @@ import threading
 from gi.repository import GLib, Gtk
 
 from . import diagnose
-from .companion_common import Section, card, clear, confirm, dim, spawn
+from .companion_common import Section, card, clear, confirm, dim, spawn, failure
 from .i18n import _
 from .version import ISSUES
 
@@ -145,7 +145,7 @@ class DiagnosePage(Section):
                     fn()
                     msg = _("Réparation terminée")
                 except Exception as e:  # noqa: BLE001 - affiché à l'utilisateur
-                    msg = _("Échec : {e}", e=e)
+                    msg = failure(e)
                 GLib.idle_add(self.win.notify, msg)
                 GLib.idle_add(self.run)
             threading.Thread(target=work, name="vasistas-fix", daemon=True).start()

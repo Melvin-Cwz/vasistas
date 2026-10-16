@@ -88,7 +88,7 @@ Outlook ou Power BI se font sans saccade. Dans nos mesures, une touche apparaît
   garder son propre mode tant qu'elle est au premier plan.
 - La puissance attribuée à Windows s'adapte à la situation : moins sur batterie, plus quand une
   application lourde comme Power BI est ouverte. Windows peut être préparé à l'ouverture de session, démarré en veille,
-  et arrêté après un délai sans fenêtre ouverte.
+  mis en veille quand l'écran se verrouille, et arrêté après un délai sans fenêtre ouverte.
 - Vasistas crée des points de restauration du disque de Windows avant l'allègement et, si vous
   activez l'option, avant Windows Update et avant chaque installation. Vous pouvez revenir à
   l'un d'eux en un clic.
@@ -169,8 +169,8 @@ activer avec votre propre clé (Paramètres, Système, Activation).
 Téléchargez `vasistas-<version>.tar.gz` depuis la dernière version publiée, puis lancez :
 
 ```
-tar xf vasistas-0.9.4.tar.gz
-cd vasistas-0.9.4
+tar xf vasistas-0.10.0.tar.gz
+cd vasistas-0.10.0
 ./install.sh
 ```
 

@@ -13,6 +13,10 @@ prend moins d'une seconde : Windows ne consomme plus rien entre deux usages.
 
 `auto_shutdown_min` (0 = jamais ; 15, 30, 60 ou 120) : Windows est arrêté proprement après ce
 délai sans aucune fenêtre ouverte, sur secteur comme sur batterie, qu'il soit en veille ou non.
+`battery_shutdown_min` (5 par défaut, 0 = jamais) : sur batterie, même chose avec ce délai, plus court.
+Windows ne reste pas allumé sur batterie quand personne ne s'en sert.
+`sleep_when_locked` (vrai par défaut) : écran verrouillé ou économiseur actif, la VM est suspendue
+tout de suite, même avec des fenêtres ouvertes, et reprend au déverrouillage.
 Démarrage en veille (`vasistas boot --sleep`, ouverture de session) : Windows est mis en veille
 dès qu'il est prêt, si rien n'a été ouvert entre-temps.
 
@@ -35,8 +39,10 @@ log = logging.getLogger(__name__)
 
 CHECK_S = 30
 DEFAULTS = {"sleep_minutes": 15, "shutdown_minutes": 0, "sleep_on_battery_only": True,
-            "sleep_without_windows_minutes": 5, "auto_shutdown_min": 0}
+            "sleep_without_windows_minutes": 5, "auto_shutdown_min": 0, "battery_shutdown_min": 5,
+            "sleep_when_locked": True}
 AUTO_SHUTDOWN_CHOICES = (0, 15, 30, 60, 120)
+BATTERY_SHUTDOWN_CHOICES = (0, 5, 10, 15, 30)
 # démarrage en veille : laisser Windows finir son ouverture de session (dossiers partagés,
 # agent) avant de le suspendre
 BOOT_SLEEP_SETTLE_S = 20
@@ -80,6 +86,7 @@ class SleepManager:
         self.empty_since = None   # dernière fenêtre fermée (arrêt automatique)
         self.ready_since = None
         self.boot_sleep = os.environ.pop(BOOT_SLEEP_ENV, "") == "1"
+        self.locked_pause = False  # pause posée par le verrouillage, levée au déverrouillage
         GLib.timeout_add_seconds(CHECK_S, self._check)
         GLib.timeout_add_seconds(2, self._watch)
         # profil de puissance et imprimantes : branchés ici, app.py crée SleepManager
@@ -94,6 +101,25 @@ class SleepManager:
                                  Gio.DBusSignalFlags.NONE, self._on_host_sleep)
         except GLib.Error:
             pass
+        # verrouillage de l'écran (Gala expose org.gnome.ScreenSaver sur le bus de session)
+        try:
+            Gio.bus_get_sync(Gio.BusType.SESSION).signal_subscribe(
+                None, "org.gnome.ScreenSaver", "ActiveChanged", "/org/gnome/ScreenSaver", None,
+                Gio.DBusSignalFlags.NONE, self._on_screensaver)
+        except GLib.Error:
+            pass
+
+    def _on_screensaver(self, *args):
+        active = args[-1].unpack()[0]
+        if active:
+            if settings()["sleep_when_locked"] and self.app.guest_ready and not self.app.pending_exec \
+                    and not self.app.launch_queue and not self.paused:
+                self.locked_pause = self.pause()
+                if self.locked_pause:
+                    log.info("Windows en veille : écran verrouillé")
+        elif self.locked_pause:
+            self.locked_pause = False
+            self.wake()
 
     def activity(self, msg_type=None):
         if msg_type is None or msg_type in ACTIVE:
@@ -110,6 +136,7 @@ class SleepManager:
             if not self.paused:
                 return
             self.paused = False
+            self.locked_pause = False
         vm.qmp_worker().call_async("cont", on_error=lambda e: log.warning("réveil : %s", e))
         log.info("Windows réveillé")
         GLib.idle_add(self.sync_clock)
@@ -162,9 +189,11 @@ class SleepManager:
         if not self.app.guest_ready or not vm.pid():
             return
         s = settings()
-        if auto_shutdown_due(s["auto_shutdown_min"], bool(self.app.views), self.empty_since,
-                             time.monotonic()):
-            log.info("Windows arrêté : aucune fenêtre ouverte depuis %d min", s["auto_shutdown_min"])
+        minutes = s["auto_shutdown_min"]
+        if s["battery_shutdown_min"] and on_battery():
+            minutes = min(m for m in (minutes, s["battery_shutdown_min"]) if m)
+        if auto_shutdown_due(minutes, bool(self.app.views), self.empty_since, time.monotonic()):
+            log.info("Windows arrêté : aucune fenêtre ouverte depuis %d min", minutes)
             self.empty_since = None
             self.wake()
             threading.Thread(target=vm.stop, daemon=True).start()

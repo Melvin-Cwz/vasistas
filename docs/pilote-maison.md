@@ -82,7 +82,7 @@ Trois niveaux, du plus léger au plus complet :
 
 1. **Désactiver le vsync** : mode 0 dans la page Affichage (Options avancées), puis redémarrer Windows. Le pilote maison reste chargé mais se comporte comme l'original.
 2. **Remettre le pilote d'origine** : lancer `install.ps1` avec `$Restore = $true`. Le service pointe de nouveau vers le fichier d'origine au prochain démarrage.
-3. **Point de restauration** : créer un point avant l'installation du pilote (onglet Restauration ou `vasistas restore create avant-pilote`), puis y revenir en cas de problème.
+3. **Point de restauration** : créer un point avant l'installation du pilote (page Restauration du menu de Vasistas, ou `vasistas restore create avant-pilote`), puis y revenir en cas de problème.
 
 ## Dépannage
 
