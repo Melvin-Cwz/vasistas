@@ -15,6 +15,7 @@ from gi.repository import Gio, GLib
 log = logging.getLogger(__name__)
 
 WATCHER = "org.kde.StatusNotifierWatcher"
+MAX_ITEMS = 64
 ITEM_IFACE = "org.kde.StatusNotifierItem"
 ITEM_XML = """
 <node>
@@ -42,8 +43,9 @@ ITEM_XML = """
 def png_to_pixmap(png):
     """PNG -> (largeur, hauteur, octets ARGB32 gros-boutistes) attendus par IconPixmap."""
     from gi.repository import GdkPixbuf
+    from .protocol import checked_png
     loader = GdkPixbuf.PixbufLoader.new_with_type("png")
-    loader.write(png)
+    loader.write(checked_png(png, 256))
     loader.close()
     pb = loader.get_pixbuf()
     if not pb.get_has_alpha():
@@ -156,6 +158,8 @@ class WindowsTray:
         self.n = 0
 
     def update(self, entries):
+        # une connexion D-Bus par icône : nombre borné, la liste vient de l'invité
+        entries = [e for e in entries if isinstance(e, dict) and isinstance(e.get("key"), str)][:MAX_ITEMS]
         keys = {e["key"] for e in entries if e.get("key")}
         for key in [k for k in self.items if k not in keys]:
             self.items.pop(key).close()

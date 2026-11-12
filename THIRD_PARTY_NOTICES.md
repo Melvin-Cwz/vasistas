@@ -11,6 +11,17 @@ reproduits plus bas dans leur langue d'origine (l'anglais), qui seule fait foi.
 | [pycdlib](https://github.com/clalancette/pycdlib) 1.21.0 | `host/vendor`, sans modification | LGPL 2.1 (`host/vendor/pycdlib-1.21.0.dist-info/licenses/COPYING`) |
 | Correctif de [QEMU](https://www.qemu.org) | `patches/qemu-11.1.1-pixman-udmabuf.patch` | GPL 2.0 ou ultérieure, comme QEMU |
 | Correctif de viogpudo, tiré de [virtio-win](https://github.com/virtio-win/kvm-guest-drivers-windows) | `guest/viogpudo/vsync.patch` | BSD 3 clauses, comme virtio-win |
+| Liste d'applications de [Win11Debloat](https://github.com/Raphire/Win11Debloat) tag 2026.08.24 (`f431c561`) | `host/vasistas/vendor/win11debloat/Apps.json`, identifiants repris dans `slim.py` ; aucun code du projet n'est exécuté | MIT |
+
+## Pilote graphique accéléré : accel-virt
+
+La carte graphique accélérée de Windows repose sur **accel-virt**
+(https://github.com/acceleration3/accel-virt), créé par **acceleration3** : pilote WDDM
+`avgpu`, pilotes Direct3D, Vulkan, OpenGL et OpenCL côté Windows, dispositif QEMU et moteur de
+rendu côté Linux. Vasistas ne contient ni ne redistribue ce logiciel : il est récupéré depuis le
+dépôt de son auteur et compilé sur l'ordinateur de l'utilisateur (`tools/build-accel-virt.sh`),
+puis installé dans Windows par l'assistant, qui cite son auteur à cette étape. Le dépôt n'a pas
+encore de licence publiée (demande ouverte : https://github.com/acceleration3/accel-virt/issues/1).
 
 Vasistas ne contient aucun logiciel de Microsoft. Les images d'installation de Windows,
 Office, les pilotes virtio-win (projet Fedora) et les applications installées par winget sont
@@ -113,4 +124,30 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## Win11Debloat
+
+```
+MIT License
+
+Copyright (c) 2020 Raphire (https://github.com/Raphire)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

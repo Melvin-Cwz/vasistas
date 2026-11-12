@@ -80,3 +80,33 @@ def test_relais_reecrit_l_entete():
     assert b"Connection: close\r\n" in out and b"Keep-Alive" not in out
     assert b"Content-Type: application/ipp\r\n" in out and b"Transfer-Encoding: chunked\r\n" in out
     assert out.endswith(b"\r\n\r\n") and out.count(b"\r\n\r\n") == 1
+
+
+def test_relais_retire_l_identification():
+    # CUPS identifierait l'appelant comme l'utilisateur Linux (PeerCred) : jamais transmis
+    head = b"POST /printers/PDF HTTP/1.1\r\nAuthorization: PeerCred moi\r\n authorization : Basic eA==\r\n\r\n"
+    assert b"uthorization" not in printproxy.rewrite_head(head)
+
+
+def _relais(monkeypatch, request):
+    import os
+    rin, win = os.pipe()
+    rout, wout = os.pipe()
+    os.write(win, request)
+    os.close(win)
+    monkeypatch.setattr(printproxy.sys, "stdin", os.fdopen(rin, "rb"))
+    monkeypatch.setattr(printproxy.sys, "stdout", os.fdopen(wout, "wb"))
+    monkeypatch.setattr(printproxy, "_connect", lambda: pytest.fail("requête transmise à CUPS"))
+    rc = printproxy.main()
+    return rc, os.read(rout, 200)
+
+
+@pytest.mark.parametrize("request_", [
+    b"POST /admin/ HTTP/1.1\r\n\r\n",
+    # requête cachée derrière des sauts de ligne nus, que CUPS prendrait pour une fin d'en-tête
+    b"POST /printers/PDF HTTP/1.1\r\nX: a\n\nPOST /admin/ HTTP/1.1\nHost: localhost\r\n\r\n",
+    b"POST /printers/PDF HTTP/1.1\r\nX: a\rConnection: keep-alive\r\n\r\n",
+])
+def test_relais_refuse(monkeypatch, request_):
+    rc, out = _relais(monkeypatch, request_)
+    assert rc == 1 and out.startswith(b"HTTP/1.1 403")

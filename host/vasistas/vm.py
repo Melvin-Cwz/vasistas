@@ -25,9 +25,12 @@ import queue  # noqa: E402
 from .i18n import _  # noqa: E402
 
 MAIN_DATA = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "vasistas"
-# Profil expérimental (VASISTAS_PROFILE=yttrium) : copie du disque, sockets et réglages à
-# part, écran accéléré par le pilote Yttrium (Venus) ; les ISO restent communes.
+# Profils expérimentaux : copie du disque, sockets et réglages à part ; les ISO restent communes.
+# VASISTAS_PROFILE=yttrium : écran accéléré par le pilote Yttrium (Venus).
+# Vasistas (sans profil) a la carte graphique accélérée accel-virt (accel.py), depuis la fusion avec
+# Vasistas Beta ; VASISTAS_PROFILE=beta reste lisible pour une ancienne copie dans vasistas-beta.
 PROFILE = os.environ.get("VASISTAS_PROFILE", "")
+ACCEL = PROFILE in ("", "beta")
 DATA = MAIN_DATA.with_name(f"vasistas-{PROFILE}") if PROFILE else MAIN_DATA
 DISK = DATA / "disk.qcow2"
 VARS = DATA / "OVMF_VARS.fd"
@@ -62,6 +65,10 @@ def _qemu_bin(name):
 
 
 QEMU = _qemu_bin("qemu-system-x86_64")
+if ACCEL:
+    from . import accel as _accel
+    if _accel.QEMU.exists():  # sinon QEMU du système : l'installation de Windows n'attend pas la compilation
+        QEMU = str(_accel.QEMU)  # QEMU 11.1.1 modifié : seul à charger virtio-gpu-av-pci
 QEMU_IMG = _qemu_bin("qemu-img")
 
 OVMF_CODE = Path("/usr/share/OVMF/OVMF_CODE_4M.fd")
@@ -80,7 +87,7 @@ HOTPLUG_PORTS = 4  # emplacements PCIe libres : un dossier ajouté est branché 
 VIRTIOFSD = next((p for p in (Path("/usr/libexec/virtiofsd"), Path("/usr/lib/qemu/virtiofsd")) if p.exists()), None)
 
 DISK_SIZE = "96G"
-MEMORY = "6G" if PROFILE else "8G"  # profil expérimental : tourne à côté de la VM principale
+MEMORY = "6G" if PROFILE == "yttrium" else "8G"  # profil expérimental : tourne à côté de la VM principale
 CPUS = 8
 # Ressources de la VM, choisies dans l'application compagnon (config.json « resources »),
 # appliquées au démarrage suivant : cœurs, mémoire
@@ -93,10 +100,37 @@ RESOURCES = {
 }
 
 
+def host_memory_gb():
+    """Mémoire vive de l'ordinateur, en Go entiers (16 si elle est illisible)."""
+    try:
+        return max(1, round(os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / 2 ** 30))
+    except (OSError, ValueError):
+        return 16
+
+
+def custom_resources(cfg=None):
+    """(cœurs, mémoire) réglés à la main (config.json « resources_custom » {cpus, memory en Go}),
+    bornés à ce que l'ordinateur possède ; None sans réglage valable. Le fichier s'écrit aussi à
+    la main : rien n'en sort vers QEMU sans être un entier dans les bornes."""
+    custom = (load_config() if cfg is None else cfg).get("resources_custom")
+    if not isinstance(custom, dict):
+        return None
+    try:
+        cpus, memory = int(custom["cpus"]), int(custom["memory"])
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return None
+    # 4 Go restent à Linux, comme sur le curseur de la page Paramètres
+    return min(max(1, cpus), os.cpu_count() or 1), f"{min(max(2, memory), max(2, host_memory_gb() - 4))}G"
+
+
 def resources():
     """(cœurs, mémoire) du réglage choisi ; le profil expérimental garde ses valeurs."""
-    if PROFILE:
+    if PROFILE == "yttrium":
         return CPUS, MEMORY
+    # valeurs personnalisées (curseurs de la page Paramètres) : elles priment sur le profil
+    custom = custom_resources()
+    if custom:
+        return custom
     # profil automatique (power.py) : batterie ou mode Économie au démarrage -> « battery »
     from . import power
     return RESOURCES.get(power.boot_profile(load_config()), RESOURCES["balanced"])
@@ -129,6 +163,13 @@ def load_config() -> dict:
     return cfg
 
 
+def configure_script() -> str:
+    """configure-windows.ps1 précédé du mot de passe du compte (ouverture de session automatique
+    protégée) ; le texte ne doit jamais être journalisé."""
+    text = (INSTALL_DIR / "configure-windows.ps1").read_text(encoding="utf-8-sig")
+    return f"$AutoLogonPassword = {ps_quote(load_config()['password'])}\n{text}"
+
+
 # -- ISO de partage --
 
 def _files_for_share(install: bool) -> dict:
@@ -145,6 +186,13 @@ def _files_for_share(install: bool) -> dict:
     extra = INSTALL_DIR / "configure-windows.ps1"
     if extra.exists():
         files["configure-windows.ps1"] = b"\xef\xbb\xbf" + extra.read_bytes()
+    if ACCEL:
+        from . import accel
+        # Vasistas Beta : paquet de pilotes sur le CD tant que Windows n'a pas cette compilation
+        if accel.available() and accel.needs_setup(load_config()):
+            files.update(accel.share_files(accel.gpus()))
+        else:
+            files["accel/install-accel.ps1"] = b"\xef\xbb\xbf" + accel.GUEST_SCRIPT.read_bytes()
     if AGENT_BUILD.is_dir():
         for p in sorted(AGENT_BUILD.rglob("*")):
             if p.is_file():
@@ -210,6 +258,7 @@ def build_share(install: bool):
     tmp = SHARE.with_suffix(".tmp")
     iso.write(str(tmp))
     iso.close()
+    tmp.chmod(0o600)  # l'ISO d'installation contient le mot de passe du compte
     tmp.replace(SHARE)
 
 
@@ -218,8 +267,12 @@ def build_share(install: bool):
 def qemu_env() -> dict:
     """Environnement de QEMU : les flux audio apparaissent sous le nom « Vasistas » dans les
     réglages de son du bureau."""
-    return {**os.environ, "PIPEWIRE_PROPS": "{ application.name=Vasistas "
-            "application.icon-name=io.github.melvincouwez.Vasistas }"}
+    env = {**os.environ, "PIPEWIRE_PROPS": "{ application.name=Vasistas "
+           "application.icon-name=io.github.melvincouwez.Vasistas }"}
+    if ACCEL:
+        from . import accel
+        env = accel.qemu_env(env, DATA)
+    return env
 
 
 def sound_args() -> list:
@@ -239,8 +292,13 @@ def printers_nic_options():
         return ""
 
 
-def qemu_args(install: bool, card=None) -> list:
+def qemu_args(install: bool, card=None, accel_plan=None, headless=False) -> list:
     cpus, memory = resources()
+    accel_args = None
+    if ACCEL and not install:
+        from . import accel
+        accel_args = accel.qemu_args(accel_plan or accel.last_plan() or {"hostmem": 4096}, SCREEN,
+                                     setup=accel.needs_setup(load_config()))
     args = [
         QEMU, "-name", f"Vasistas-{PROFILE}" if PROFILE else "Vasistas",
         # hpet=off et PIT sans rattrapage : moins d'interruptions de minuterie dans Windows, qui a
@@ -269,6 +327,7 @@ def qemu_args(install: bool, card=None) -> list:
         "-qmp", f"unix:{QMP_HOST},server=on,wait=off",
         *(["-device", "virtio-vga-gl,hostmem=4G,blob=on,venus=on"]
           if PROFILE == "yttrium" and not os.environ.get("VASISTAS_NO_VENUS")
+          else accel_args[0] if accel_args
           else ["-device", f"virtio-vga,xres={SCREEN[0]},yres={SCREEN[1]}"]),
         *sound_args(),
         # ballon piloté par balloon.py (le pilote Windows ignore free-page-reporting, sans effet mais sans gêne)
@@ -280,9 +339,11 @@ def qemu_args(install: bool, card=None) -> list:
     # emplacements libres pour brancher un dossier partagé à chaud
     for i in range(HOTPLUG_PORTS):
         args += ["-device", f"pcie-root-port,id=hp{i},chassis={20 + i},slot={20 + i}"]
-    if not install and VIRTIOFSD:
-        # virtiofs exige une mémoire partagée avec virtiofsd
+    if not install and (VIRTIOFSD or accel_args):
+        # virtiofs exige une mémoire partagée avec virtiofsd ; accel-virt aussi (son moteur de
+        # rendu, dans un processus à part, lit les anneaux de commandes dans la mémoire de Windows)
         args += ["-object", f"memory-backend-memfd,id=mem,size={memory},share=on", "-numa", "node,memdev=mem"]
+    if not install and VIRTIOFSD:
         for i, (tag, path, _, _) in enumerate(shares()):
             if path.is_dir():
                 args += ["-chardev", f"socket,id=vfs{i},path={_vfs_socket(tag)}",
@@ -302,11 +363,14 @@ def qemu_args(install: bool, card=None) -> list:
         args += [
             "-drive", f"if=none,id=wincd,media=cdrom,readonly=on,file={WIN_ISO}",
             "-device", "ide-cd,drive=wincd,bus=ide.0,bootindex=0",
-            "-display", "gtk,zoom-to-fit=on",
+            # sans fenêtre pour l'assistant, qui montre l'écran lui-même (screenview.py)
+            "-display", "none" if headless else "gtk,zoom-to-fit=on",
         ]
     elif PROFILE == "yttrium" and not os.environ.get("VASISTAS_NO_VENUS"):
         # la doc d'Yttrium demande un affichage visible (fenêtre QEMU classique)
         args += ["-display", os.environ.get("VASISTAS_YTTRIUM_DISPLAY", "gtk,gl=on,zoom-to-fit=on")]
+    elif accel_args:
+        args += accel_args[1] + ["-daemonize"]
     else:
         args += ["-display", "dbus,p2p=yes", "-daemonize"]
     return args
@@ -488,20 +552,35 @@ def _check_files(install: bool):
         raise SystemExit(_("fichiers manquants :") + "\n  " + "\n  ".join(missing))
 
 
-def install(force=False):
+def install(force=False, headless=False):
     _check_files(True)
     if pid():
         raise SystemExit(_("la VM est déjà en marche"))
     if DISK.exists() and not force:
         raise SystemExit(_("{disk} existe déjà (--force pour réinstaller)", disk=DISK))
     load_config()
+    try:  # l'annulation (SIGTERM) passe aussi par le nettoyage de l'ISO
+        signal.signal(signal.SIGTERM, lambda *_a: sys.exit(1))
+    except ValueError:  # hors du fil principal
+        pass
     subprocess.run([QEMU_IMG, "create", "-q", "-f", "qcow2", str(DISK), DISK_SIZE], check=True)
     shutil.copyfile(OVMF_VARS, VARS)
+    try:
+        return _run_install(headless)
+    finally:
+        # le fichier de réponses (mot de passe) ne reste pas dans l'ISO : fin normale, échec ou arrêt
+        try:
+            build_share(install=False)
+        except OSError as e:
+            print(_("ISO de partage non reconstruite : {error}", error=e), file=sys.stderr)
+
+
+def _run_install(headless):
     build_share(install=True)
     for s in (SERIAL, QMP, QMP_HOST):
         s.unlink(missing_ok=True)
     print(_("installation de Windows : la fenêtre QEMU se ferme automatiquement à la fin"))
-    proc = subprocess.Popen(qemu_args(True))
+    proc = subprocess.Popen(qemu_args(True, headless=headless))
     threading.Thread(target=_press_keys_during_boot, daemon=True).start()
     reasons = []
     watcher = threading.Thread(target=_watch_shutdown, args=(reasons,), daemon=True)
@@ -556,9 +635,15 @@ def shares():
     return [(s["tag"], Path(s["path"]), s["drive"], s.get("label") or s["tag"]) for s in cfg]
 
 
+def share_readonly(tag) -> bool:
+    """Partage en lecture seule : clé `readonly` du dossier dans config.json (faux par défaut)."""
+    return any(s["tag"] == tag and s.get("readonly") for s in load_config().get("shares") or [])
+
+
 def save_shares(items):
     """items : [(dossier, lecteur, nom affiché)] ; étiquettes uniques recalculées."""
     cfg = load_config()
+    readonly = {s["path"] for s in cfg.get("shares") or [] if s.get("readonly")}  # conservé à l'enregistrement
     out, used = [], set()
     for path, drive, label in items:
         tag = base = share_tag(label)
@@ -566,7 +651,8 @@ def save_shares(items):
         while tag in used:
             tag, n = f"{base}{n}", n + 1
         used.add(tag)
-        out.append({"tag": tag, "path": str(path), "drive": drive, "label": label})
+        out.append({"tag": tag, "path": str(path), "drive": drive, "label": label,
+                    **({"readonly": True} if str(path) in readonly else {})})
     cfg["shares"] = out
     save_config(cfg)
 
@@ -638,15 +724,46 @@ def _start_virtiofsd():
 
 def _start_one_virtiofsd(tag, path):
     sock = _vfs_socket(tag)
+    # un virtiofsd resté d'un démarrage raté de QEMU garde le verrou de son fichier pid : le
+    # suivant ne démarre pas et QEMU ne trouve plus la prise
+    try:
+        old = int(Path(f"{sock}.pid").read_text())
+        if str(sock).encode() in Path(f"/proc/{old}/cmdline").read_bytes():
+            os.kill(old, 15)
+            for _i in range(20):
+                if not Path(f"/proc/{old}").exists():
+                    break
+                time.sleep(0.1)
+    except (OSError, ValueError):
+        pass
     sock.unlink(missing_ok=True)
-    with open(DATA / f"virtiofsd-{tag.lower()}.log", "ab") as log:
-        subprocess.Popen([str(VIRTIOFSD), "--shared-dir", str(path), "--socket-path", str(sock),
-                          "--sandbox", "none", "--cache", "auto"],
-                         stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True)
-    for _ in range(50):
+    # « namespace » isole le démon sans droits root ; « none » seulement s'il ne démarre pas ainsi
+    for sandbox in ("namespace", "none"):
+        proc = _spawn_virtiofsd(tag, path, sock, sandbox)
+        for _i in range(50):
+            if sock.exists() or proc.poll() is not None:
+                break
+            time.sleep(0.1)
         if sock.exists():
-            break
-        time.sleep(0.1)
+            return
+        if proc.poll() is None:
+            proc.kill()  # pas de prise au bout de 5 s : ne pas laisser ce démon à côté du suivant
+        if sandbox == "namespace":
+            print(_("virtiofsd ({tag}) : isolation « namespace » impossible, repli sur « none »", tag=tag),
+                  file=sys.stderr)
+            sock.unlink(missing_ok=True)
+
+
+def virtiofsd_args(path, sock, sandbox, readonly=False):
+    args = [str(VIRTIOFSD), "--shared-dir", str(path), "--socket-path", str(sock),
+            "--sandbox", sandbox, "--cache", "auto"]
+    return args + ["--readonly"] if readonly else args
+
+
+def _spawn_virtiofsd(tag, path, sock, sandbox):
+    with open(DATA / f"virtiofsd-{tag.lower()}.log", "ab") as log:
+        return subprocess.Popen(virtiofsd_args(path, sock, sandbox, share_readonly(tag)),
+                                stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True)
 
 
 def hotplug_share(tag, path):
@@ -682,11 +799,25 @@ def hotplug_share(tag, path):
 def start(wait_socket=True):
     if pid():
         return
+    if ACCEL:
+        from . import accel
+        accel.clone_main(lambda m: print(m, file=sys.stderr))  # premier démarrage de la Beta
     ensure_data()  # dossiers créés avant le passage en 0700
     _check_files(False)
     build_share(install=False)
     for s in (SERIAL, QMP, QMP_HOST):
         s.unlink(missing_ok=True)
+    accel_plan = None
+    if ACCEL:
+        accel_plan = _accel_plan()
+    elif not PROFILE:
+        try:
+            beta = int((MAIN_DATA.with_name("vasistas-beta") / "qemu.pid").read_text())
+            beta_running = b"qemu-system" in Path(f"/proc/{beta}/cmdline").read_bytes()
+        except (OSError, ValueError):
+            beta_running = False
+        if beta_running:
+            raise RuntimeError(_("Vasistas Beta est en marche : arrêtez son Windows avant celui de Vasistas."))
     _start_virtiofsd()
     card = None
     if not PROFILE:
@@ -710,7 +841,8 @@ def start(wait_socket=True):
                 time.sleep(0.1)
         else:
             try:
-                subprocess.run(qemu_args(False, card), env=qemu_env(), check=True, stdout=log, stderr=log)
+                subprocess.run(qemu_args(False, card, accel_plan), env=qemu_env(), check=True, stdout=log,
+                               stderr=log)
             except subprocess.CalledProcessError:
                 release_gpu()
                 raise
@@ -719,6 +851,26 @@ def start(wait_socket=True):
             if SERIAL.exists():
                 break
             time.sleep(0.1)
+
+
+def _accel_plan():
+    """Vasistas Beta : compilation d'accel-virt présente, VM principale arrêtée (même Windows
+    copié, mêmes identifiants d'applications), carte et mémoire choisies pour ce démarrage."""
+    from . import accel, power
+    lacking = accel.missing()
+    if lacking:
+        raise RuntimeError(_("accel-virt n'est pas compilé ({path}) : voir docs/acceleration-graphique.md",
+                             path=lacking[0]))
+    try:
+        main = int((MAIN_DATA / "qemu.pid").read_text())
+        main_running = b"qemu-system" in Path(f"/proc/{main}/cmdline").read_bytes()
+    except (OSError, ValueError):
+        main_running = False
+    if main_running:
+        raise RuntimeError(_("Arrêtez d'abord Windows dans Vasistas : Vasistas Beta utilise une copie du même "
+                             "Windows."))
+    cfg = load_config()
+    return accel.plan(cfg, power.boot_profile(cfg))
 
 
 def stop(timeout=60):

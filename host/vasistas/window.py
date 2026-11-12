@@ -29,6 +29,10 @@ DOUBLE_CLICK_S = 0.4
 # commandes qu'ils gèrent eux-mêmes alors que WM_NCHITTEST y répond HTCAPTION. Le clic part donc
 # vers Windows ; le déplacement de la fenêtre Linux ne commence qu'au-delà de ce glissement.
 CAPTION_DRAG_PX = 4
+# Barre de titre dessinée par l'application, que WM_NCHITTEST donne en zone cliente (HTCLIENT) :
+# hauteur en pixels à 96 DPI. Sans elle, le clic part vers Windows qui déplace la fenêtre dans sa
+# propre session (fenêtre qui tremble, barre des tâches visible, focus perdu ; Power BI, 2026-10-19).
+CLIENT_CAPTIONS = {"pbidesktop": 36}
 HOST_EDGE_PX = 6
 EDGE_CURSORS = {
     Gdk.SurfaceEdge.NORTH: "ns-resize", Gdk.SurfaceEdge.SOUTH: "ns-resize",
@@ -37,6 +41,7 @@ EDGE_CURSORS = {
     Gdk.SurfaceEdge.NORTH_EAST: "nesw-resize", Gdk.SurfaceEdge.SOUTH_WEST: "nesw-resize",
 }
 MOVE_INTERVAL_MS = 8  # au plus 120 mouvements de souris par seconde vers l'invité
+DESKTOP_RESIZE_MS = 350  # fenêtre du bureau entier : résolution de Windows changée une fois la taille posée
 RESIZE_DEBOUNCE_MS = 40
 RESIZE_THROTTLE_MS = 120
 SIZE_TOLERANCE_PX = 2
@@ -73,6 +78,12 @@ def guest_scale_on(app, dpi, widget):
         if not dpi or windows_dpi(surface_scale) == dpi:
             return surface_scale
     return app.guest_scale_for(dpi)
+
+
+# Vasistas Beta : écran de la carte accélérée rendu à l'envers. Pour QEMU, y0_top faux est la
+# convention GL ordinaire (première ligne en mémoire = haut de l'image, ce que GTK attend) ;
+# y0_top vrai demande un retournement. app._flush_damage le tient à jour.
+SCREEN_FLIP = {"on": False}
 
 
 class GuestView(Gtk.Picture):
@@ -168,17 +179,30 @@ class GuestView(Gtk.Picture):
         y, h = y + self.nc_top, h - self.nc_top
         snapshot.push_clip(Graphene.Rect().init(0, 0, min(W, w * k), min(H, h * k)))
         tw, th = texture.get_width() * k, texture.get_height() * k
+        flip = bool(self.src_rect) and SCREEN_FLIP["on"]
         if exact:
             # 1:1 : nœud de texture simple, calé sur les pixels de l'écran. Un nœud
             # append_scaled_texture est d'abord rendu à sa taille logique puis agrandi à
             # l'échelle de l'écran (blocs 2x2 à 200 %, moiré à 167 %), même en NEAREST.
             dx, dy = self._device_offset()
-            snapshot.append_texture(texture, Graphene.Rect().init(dx - x * k, dy - y * k, tw, th))
+            bounds = Graphene.Rect().init(dx - x * k, dy - y * k, tw, th)
+        else:
+            bounds = Graphene.Rect().init(-x * k, -y * k, tw, th)
+        if flip:
+            # image retournée sur place : la ligne r de la texture va en bas du même rectangle
+            top = bounds.get_y()
+            snapshot.save()
+            snapshot.translate(Graphene.Point().init(0, 2 * top + th))
+            snapshot.scale(1, -1)
+        if exact:
+            snapshot.append_texture(texture, bounds)
         else:
             # fenêtre sur un autre écran que celui de travail : réduite (Windows à 200 %,
             # écran à 100 %) par mipmaps, bien plus lisible qu'en linéaire ; agrandie en linéaire
             filt = Gsk.ScalingFilter.TRILINEAR if gs > scale_of(self) else Gsk.ScalingFilter.LINEAR
-            snapshot.append_scaled_texture(texture, filt, Graphene.Rect().init(-x * k, -y * k, tw, th))
+            snapshot.append_scaled_texture(texture, filt, bounds)
+        if flip:
+            snapshot.restore()
         if self.src_rect:
             # zones sous un menu devenu popup : l'image d'avant le menu (voir app._create)
             dx, dy = self._device_offset() if exact else (0.0, 0.0)
@@ -317,7 +341,7 @@ class GuestView(Gtk.Picture):
                 toplevel.begin_resize(edge, event.get_device(), button, sx, sy, event.get_time())
                 return True
             if button == 1 and toplevel is not None:
-                if self.hit == HTCAPTION:
+                if self.hit == HTCAPTION or self._in_client_caption(gy):
                     if time.monotonic() - self.last_caption_click < DOUBLE_CLICK_S:
                         # double-clic : agrandi ou rétabli par l'hôte ; Windows ne voit que le
                         # premier clic (sinon il agrandirait de son côté et contredirait l'hôte)
@@ -366,6 +390,10 @@ class GuestView(Gtk.Picture):
             self.owner.send(self.pending_move)
             self.pending_move = None
         return False
+
+    def _in_client_caption(self, gy):
+        band = CLIENT_CAPTIONS.get(getattr(self.owner, "app_name", None))
+        return band is not None and self.hit == 1 and gy - self.nc_top < band * (self.owner.dpi or 96) / 96
 
     def set_hover(self, hit, cursor):
         self.hit = hit
@@ -709,6 +737,13 @@ class GuestWindow(KeyboardMixin, Gtk.Window):
         wait = max(RESIZE_DEBOUNCE_MS, RESIZE_THROTTLE_MS - (now - self.last_resize_ms))
         self.resize_source = GLib.timeout_add(int(wait), self._send_resize)
 
+    def reflow(self):
+        """Aller-retour de taille d'un pixel : l'application se remet en page à la nouvelle échelle."""
+        w, h = self.guest_size
+        if w > 1 and h > 1:
+            self.send({"t": "window.resize", "id": self.wid, "w": w - 1, "h": h})
+            GLib.timeout_add(200, lambda: self.send({"t": "window.resize", "id": self.wid, "w": w, "h": h}) and False)
+
     def _send_resize(self):
         self.resize_source = 0
         self.last_resize_ms = GLib.get_monotonic_time() // 1000
@@ -755,6 +790,212 @@ class GuestWindow(KeyboardMixin, Gtk.Window):
     def destroy_view(self):
         self.app.forget(self.wid)
         self.destroy()
+
+
+class DesktopView(Gtk.Widget):
+    """Tout l'écran de Windows, ajusté à la fenêtre ; souris en coordonnées de l'écran."""
+
+    def __init__(self, owner):
+        super().__init__(hexpand=True, vexpand=True, focusable=True)
+        self.owner = owner
+        self.buttons = set()
+        self.pending_move = None
+        self.move_source = 0
+        self.last_pos = None
+        self.scroll_acc = [0.0, 0.0]
+        legacy = Gtk.EventControllerLegacy()
+        legacy.connect("event", self._on_event)
+        self.add_controller(legacy)
+        scroll = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.BOTH_AXES)
+        scroll.connect("scroll", self._on_scroll)
+        self.add_controller(scroll)
+
+    def do_snapshot(self, snapshot):
+        texture = self.owner.app.screen_texture
+        # fond noir : pas de bord gris (couleur de la fenêtre) pendant un changement de résolution
+        black = Gdk.RGBA()
+        black.parse("black")
+        snapshot.append_color(black, Graphene.Rect().init(0, 0, self.get_width(), self.get_height()))
+        if texture is None:
+            return
+        k, ox, oy, exact = desktop_layout(self.get_width(), self.get_height(), texture.get_width(),
+                                          texture.get_height(), scale_of(self))
+        if exact:
+            # résolution de Windows calée sur la fenêtre : un pixel de Windows par pixel de
+            # l'écran, posé sur des pixels entiers (comme GuestView), donc net
+            dx, dy = GuestView._device_offset(self)
+            ox, oy = ox + dx, oy + dy
+        w, h = texture.get_width() * k, texture.get_height() * k
+        flip = SCREEN_FLIP["on"]
+        if flip:
+            # même retournement que GuestView : la carte accélérée rend l'image à l'envers
+            snapshot.save()
+            snapshot.translate(Graphene.Point().init(0, 2 * oy + h))
+            snapshot.scale(1, -1)
+        bounds = Graphene.Rect().init(ox, oy, w, h)
+        if exact:
+            snapshot.append_texture(texture, bounds)
+        else:
+            # le temps que Windows change de résolution : image ajustée, donc lissée
+            filt = Gsk.ScalingFilter.TRILINEAR if k * scale_of(self) < 1 else Gsk.ScalingFilter.LINEAR
+            snapshot.append_scaled_texture(texture, filt, bounds)
+        if flip:
+            snapshot.restore()
+
+    def do_size_allocate(self, width, height, baseline):
+        if (width, height) != getattr(self, "alloc", None):
+            self.alloc = (width, height)
+            self.owner.on_view_resized(width, height)
+
+    def _to_screen(self, event):
+        ok, sx, sy = event.get_position()
+        scr = self.owner.app.screen
+        native = self.get_native()
+        if not ok or scr is None or native is None:
+            return None
+        tx, ty = native.get_surface_transform()
+        res = native.translate_coordinates(self, sx - tx, sy - ty)
+        if not res:
+            return None
+        return screen_point(*res[-2:], self.get_width(), self.get_height(), scr.width, scr.height, scale_of(self))
+
+    def _on_event(self, ctrl, event):
+        event = event or ctrl.get_current_event()
+        if event is None:
+            return False
+        et = event.get_event_type()
+        if et not in (Gdk.EventType.MOTION_NOTIFY, Gdk.EventType.BUTTON_PRESS, Gdk.EventType.BUTTON_RELEASE):
+            return False
+        pos = self._to_screen(event)
+        if pos is None:
+            return False
+        x, y = self.last_pos = pos
+        if et == Gdk.EventType.MOTION_NOTIFY:
+            self.pending_move = {"t": "screen.move", "x": x, "y": y}
+            if not self.move_source:
+                self.move_source = GLib.timeout_add(MOVE_INTERVAL_MS, self._flush_move)
+            return True
+        self._flush_move()
+        button = event.get_button()
+        down = et == Gdk.EventType.BUTTON_PRESS
+        if down:
+            self.grab_focus()
+            self.buttons.add(button)
+        elif button not in self.buttons:
+            return True
+        else:
+            self.buttons.discard(button)
+        self.owner.send({"t": "screen.button", "x": x, "y": y, "button": button, "down": down})
+        return True
+
+    def _flush_move(self):
+        if self.move_source:
+            GLib.source_remove(self.move_source)
+            self.move_source = 0
+        if self.pending_move is not None:
+            self.owner.send(self.pending_move)
+            self.pending_move = None
+        return False
+
+    def _on_scroll(self, ctrl, dx, dy):
+        if self.last_pos is None:
+            return False
+        unit = ctrl.get_unit() if hasattr(ctrl, "get_unit") else Gdk.ScrollUnit.WHEEL
+        factor = 120 if unit == Gdk.ScrollUnit.WHEEL else 12
+        self.scroll_acc[0] += dx * factor
+        self.scroll_acc[1] -= dy * factor
+        ix, iy = int(self.scroll_acc[0]), int(self.scroll_acc[1])
+        if ix or iy:
+            self.scroll_acc[0] -= ix
+            self.scroll_acc[1] -= iy
+            self.owner.send({"t": "screen.wheel", "x": self.last_pos[0], "y": self.last_pos[1], "dx": ix, "dy": iy})
+        return True
+
+
+def fit_screen(width, height, screen_w, screen_h):
+    """(échelle, marge gauche, marge haute) d'un écran ajusté sans déformation et centré."""
+    if min(width, height, screen_w, screen_h) <= 0:
+        return 1.0, 0.0, 0.0
+    k = min(width / screen_w, height / screen_h)
+    return k, (width - screen_w * k) / 2, (height - screen_h * k) / 2
+
+
+def desktop_resolution(width, height, scale):
+    """Résolution de Windows pour une vue de `width` x `height` pixels logiques : exactement ses
+    pixels physiques (le pilote accéléré accepte toute taille, même impaire : essai du
+    2026-11-12), donc aucune marge autour de l'image ; jamais sous 800 x 600."""
+    return max(800, round(width * scale)), max(600, round(height * scale))
+
+
+def desktop_layout(width, height, screen_w, screen_h, scale):
+    """(échelle, marge gauche, marge haute, exact) de l'écran de Windows dans la vue du bureau.
+    `exact` : la résolution est celle que desktop_resolution() donne pour cette vue ; l'image
+    est alors montrée pixel pour pixel. Sinon elle est ajustée (fit_screen)."""
+    if scale > 0 and (round(width * scale), round(height * scale)) == (screen_w, screen_h):
+        return 1 / scale, 0.0, 0.0, True
+    return (*fit_screen(width, height, screen_w, screen_h), False)
+
+
+def screen_point(x, y, width, height, screen_w, screen_h, scale=1.0):
+    """Point de l'écran de Windows sous un point de la vue du bureau, ramené dans l'écran."""
+    k, ox, oy, _exact = desktop_layout(width, height, screen_w, screen_h, scale)
+    return (min(max(int((x - ox) / k), 0), screen_w - 1), min(max(int((y - oy) / k), 0), screen_h - 1))
+
+
+class DesktopWindow(KeyboardMixin, Gtk.Window):
+    """Bureau de Windows en entier dans une fenêtre : pour voir ce que les fenêtres d'application
+    ne montrent pas (bureau, barre des tâches, boîte restée derrière) et y agir."""
+
+    def __init__(self, app):
+        from .i18n import _
+        super().__init__(title=_("Bureau de Windows"))
+        self.app = app
+        scr = app.screen
+        ratio = scr.height / scr.width if scr is not None and scr.width else 0.625
+        self.set_default_size(1280, round(1280 * ratio))
+        self.resize_source = 0
+        self.view = DesktopView(self)
+        self.set_child(self.view)
+        self._setup_keyboard()
+        self.connect("close-request", self._on_close)
+        # GTK repose l'identifiant de l'application à l'affichage : on repasse derrière (comme GuestWindow)
+        self.connect("realize", self._own_app_id)
+        self.connect("map", self._own_app_id)
+
+    def _own_app_id(self, _win):
+        """Identifiant Wayland propre à cette fenêtre : sous celui de Vasistas, Gala lui redonnait
+        la taille mémorisée pour la carte de chargement (394 x 223), et Windows passait en 800 x 600."""
+        surface = self.get_surface()
+        if isinstance(surface, GdkWayland.WaylandToplevel):
+            from .winctl import APP_ID
+            surface.set_application_id(f"{APP_ID}.Bureau")
+
+    def send(self, msg):
+        self.app.send(msg)
+
+    def on_view_resized(self, width, height):
+        """Fenêtre redimensionnée : Windows prend sa taille, une fois le geste terminé (chaque
+        changement de résolution fait redessiner tout Windows)."""
+        if self.resize_source:
+            GLib.source_remove(self.resize_source)
+        self.resize_source = GLib.timeout_add(DESKTOP_RESIZE_MS, self._apply_size)
+
+    def _apply_size(self):
+        self.resize_source = 0
+        if self.app.desktop_win is self and self.view.get_width() > 0:
+            size = desktop_resolution(self.view.get_width(), self.view.get_height(), scale_of(self.view))
+            log.info("bureau de Windows : vue de %dx%d à l'échelle %.3f, résolution %dx%d", self.view.get_width(),
+                     self.view.get_height(), scale_of(self.view), *size)
+            self.app.set_desktop_resolution(size)
+        return False
+
+    def _on_close(self, _win):
+        if self.resize_source:
+            GLib.source_remove(self.resize_source)
+            self.resize_source = 0
+        self.release_keys()
+        self.app.leave_desktop()
+        return False
 
 
 class GuestPopup(Gtk.Popover):

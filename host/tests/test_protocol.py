@@ -44,3 +44,30 @@ def test_json_invalide_ignore():
     bad = protocol.MAGIC + (5).to_bytes(4, "little") + bytes([protocol.T_JSON]) + b"{no}"
     t, m = _reader(bad + protocol.pack_json({"t": "ok"})).read()
     assert m == {"t": "ok"}
+
+
+def test_tuile_bombe_de_decompression_refusee():
+    # l'invité annonce 1 x 1 mais envoie 16 Mo compressés : jamais décompressés en entier
+    import zlib
+    import pytest
+    bomb = zlib.compress(bytes(16 << 20), 9, wbits=-15)
+    payload = protocol.TILE_HEADER.pack(1, 0, 0, 1, 1, protocol.ENC_DEFLATE) + bomb
+    with pytest.raises(ValueError):
+        protocol.unpack_tile(payload)
+    payload = protocol.TILE_HEADER.pack(1, 0, 0, 1, 1, protocol.ENC_ZSTD) + protocol.zstd.compress(bytes(16 << 20))
+    with pytest.raises(ValueError):
+        protocol.unpack_tile(payload)
+    # taille annoncée démesurée : refusée avant toute décompression
+    with pytest.raises(ValueError):
+        protocol.unpack_tile(protocol.TILE_HEADER.pack(1, 0, 0, 65535, 65535, protocol.ENC_DEFLATE) + bomb)
+
+
+def test_png_de_l_invite_controle():
+    import struct
+    import pytest
+    png = b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", 64, 64) + bytes(9)
+    assert protocol.checked_png(png, 256) == png
+    with pytest.raises(ValueError):
+        protocol.checked_png(png, 32)                       # trop grand
+    with pytest.raises(ValueError):
+        protocol.checked_png(b"GIF89a" + bytes(30), 256)    # autre format

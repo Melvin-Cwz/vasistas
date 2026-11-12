@@ -59,3 +59,21 @@ def test_fil_d_envoi_ecrit_dans_l_ordre():
         ch.out_cond.notify_all()
     t.join(2)
     assert not t.is_alive()
+
+
+def test_fenetres_de_l_invite_bornees(monkeypatch):
+    # l'invité n'est pas de confiance : une fenêtre géante ou mal formée ne réserve rien
+    seen = []
+    monkeypatch.setattr(channel.GLib, "idle_add", lambda fn, *a: seen.append(a))
+    ch = _channel()
+    ch._handle_json({"t": "window.new", "id": 1, "rect": [0, 0, 800, 600]})
+    ch._handle_json({"t": "window.new", "id": 2, "rect": [0, 0, 100000, 100000]})
+    ch._handle_json({"t": "window.update", "id": 1, "rect": [0, 0, 16384, 16384 + 1]})
+    assert list(ch.surfaces) == [1] and (ch.surfaces[1].w, ch.surfaces[1].h) == (800, 600)
+    assert len(seen) == 1  # les messages refusés n'arrivent pas à l'application
+    monkeypatch.setattr(channel, "MAX_PIXELS", 800 * 600 + 10)
+    ch._handle_json({"t": "window.new", "id": 3, "rect": [0, 0, 4, 4]})
+    assert 3 not in ch.surfaces  # budget total dépassé
+    monkeypatch.setattr(channel, "MAX_SURFACES", 1)
+    ch._handle_json({"t": "window.new", "id": 4, "rect": [0, 0, 1, 1]})
+    assert 4 not in ch.surfaces

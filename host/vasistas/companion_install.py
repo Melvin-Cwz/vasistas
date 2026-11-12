@@ -252,16 +252,20 @@ class InstallPage(Section):
 
         def work():
             try:
-                office = catalog.office_status()
-                apps = catalog.status()
-                GLib.idle_add(self.show_status, office, apps)
+                # Office d'abord (2 s) : son état n'attend pas la lecture de winget
+                GLib.idle_add(self.show_status, catalog.office_status(), None)
+                GLib.idle_add(self.show_status, None, catalog.status())
             except Exception as e:  # noqa: BLE001 - affiché à l'utilisateur
                 GLib.idle_add(self.win.notify, _("Lecture impossible : {e}", e=e))
             GLib.idle_add(self.done)
         threading.Thread(target=work, name="vasistas-install-status", daemon=True).start()
 
     def show_status(self, office, apps):
-        self.installed = apps
+        if apps is not None:
+            self.installed = apps
+            self.sensitize()
+        if office is None:
+            return False
         if office.get("installed"):
             products = ", ".join(office.get("products") or []) or "Office"
             channel = _(catalog.CHANNELS.get(office.get("channel") or "", N_("canal inconnu")))

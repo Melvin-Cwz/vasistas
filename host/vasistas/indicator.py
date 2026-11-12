@@ -210,6 +210,7 @@ def build_menu(state, apps, power, icons=None):
     if p in ("starting", "ready", "sleeping"):
         items.append({"label": _("Arrêter Windows"), "action": ("stop",)})
     if p == "ready":
+        items.append({"label": _("Afficher le bureau de Windows"), "action": ("desktop",)})
         items.append({"label": _("Réinitialiser les affichages"), "action": ("reset",)})
     choices = [{"label": _(label), "action": ("power", key), "toggle": "radio", "checked": key == power}
                for key, label, _detail in winctl.RESOURCES]
@@ -641,6 +642,8 @@ class Indicator:
             self._in_thread(getattr(winctl, name))
         elif name == "reset":
             self._in_thread(self._reset_windows)
+        elif name == "desktop":
+            self._in_thread(winctl.show_desktop)
         elif name == "power":
             winctl.set_resources(rest[0])
             self.rebuild()

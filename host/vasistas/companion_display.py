@@ -27,7 +27,8 @@ def app_name(app, registry):
 
 class RestartBanner(Gtk.Box):
     """Bandeau « Redémarrez Windows pour appliquer… » des réglages pris au démarrage."""
-    NAMES = {"resources": N_("puissance allouée"), "vsync": N_("synchronisation verticale")}
+    NAMES = {"resources": N_("puissance allouée"), "vsync": N_("synchronisation verticale"),
+             "accel": N_("carte graphique accélérée")}
 
     def __init__(self, win):
         super().__init__(spacing=12, margin_bottom=6, visible=False)
@@ -233,6 +234,12 @@ class PerformancePage(Gtk.Box):
         left.append(self.rules_card())
         self.live = LivePanel()
         right.append(self.live)
+        self.accel = None
+        if vm.ACCEL:
+            # Vasistas Beta : carte accélérée accel-virt, à la place du prêt de la carte dédiée
+            from .companion_accel import AccelCard
+            self.accel = AccelCard(win, self.banner)
+            right.append(self.accel)
         right.append(self.options_card())
         from .companion_advanced import FineTuneSection
         from .companion_screens import ScreensPage
@@ -447,14 +454,20 @@ class PerformancePage(Gtk.Box):
             vm.save_config(c)
             self.update_gpu()
         gpu.connect("notify::selected", on_gpu)
-        box.append(row(_("Carte graphique dédiée"), _("Vasistas prête la carte graphique dédiée à Windows au démarrage "
-                                                      "de Windows, si Linux ne l'utilise pas."), gpu))
+        gpu_row = row(_("Carte graphique dédiée"), _("Vasistas prête la carte graphique dédiée à Windows au démarrage "
+                                                     "de Windows, si Linux ne l'utilise pas."), gpu)
+        box.append(gpu_row)
         self.gpu_label = dim("")
         box.append(self.gpu_label)
         self.gpu_install = Gtk.Button(label=_("Copier la commande d'installation"), halign=Gtk.Align.START,
                                       visible=False)
         self.gpu_install.connect("clicked", lambda *_a: self.copy_install())
         box.append(self.gpu_install)
+        if vm.ACCEL:
+            # Vasistas Beta : jamais de carte prêtée, la carte accélérée la remplace
+            gpu_row.set_visible(False)
+            self.gpu_label.set_visible(False)
+            return box
         self.update_gpu()
         return box
 
@@ -510,6 +523,8 @@ class PerformancePage(Gtk.Box):
             self.active_rule_app = rule_app
             self.fill_rules()
         self.live.refresh(state)
+        if self.accel is not None:
+            self.accel.update(state)
         self.banner.refresh()
         for section in self.sections.values():
             section.update(state)

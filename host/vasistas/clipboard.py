@@ -12,6 +12,8 @@ import threading
 
 from gi.repository import Gdk, Gio, GLib
 
+from .protocol import checked_png
+
 log = logging.getLogger(__name__)
 
 MAX_BYTES = 24 << 20
@@ -40,12 +42,13 @@ class ClipboardSync:
         html = msg.get("html")
         png = msg.get("png")
         if png:
-            data = base64.b64decode(png)
             try:
+                # PNG seulement : new_from_bytes essaierait sinon tous les décodeurs d'images
+                data = checked_png(base64.b64decode(png), 16384)
                 texture = Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
                 providers.append(Gdk.ContentProvider.new_for_value(texture))
-            except GLib.Error as e:
-                log.warning("image du presse-papiers : %s", e.message)
+            except (GLib.Error, ValueError) as e:
+                log.warning("image du presse-papiers : %s", e)
         if html:
             providers.append(Gdk.ContentProvider.new_for_bytes(
                 "text/html", GLib.Bytes.new(html.encode("utf-8"))))

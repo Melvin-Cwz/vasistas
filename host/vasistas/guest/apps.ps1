@@ -99,4 +99,5 @@ Get-AppxPackage -PackageTypeFilter Main | Where-Object { -not $_.IsFramework } |
 $json = ConvertTo-Json -InputObject @($list) -Compress -Depth 3
 $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
 [IO.File]::WriteAllText("$env:TEMP\vasistas-apps.b64", $b64)
-[Console]::Out.Write($b64.Length)
+# sortie par le pipeline : l'agent la redirige dans un fichier, [Console]::Out n'y arrive pas
+$b64.Length

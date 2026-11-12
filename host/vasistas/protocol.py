@@ -20,6 +20,9 @@ ENC_DEFLATE = 1
 ENC_ZSTD = 2
 
 MAX_FRAME = 64 * 1024 * 1024
+# l'invité n'est pas de confiance : une tuile ne se décompresse jamais au-delà de sa taille
+# annoncée, elle-même bornée (bien plus qu'un écran 8K)
+MAX_TILE = 256 * 1024 * 1024
 MAGIC = b"VS"
 
 
@@ -45,13 +48,27 @@ def pack_tile(wid: int, x: int, y: int, w: int, h: int, bgra: bytes, compress=Tr
 def unpack_tile(payload: bytes):
     wid, x, y, w, h, enc = TILE_HEADER.unpack_from(payload)
     data = memoryview(payload)[TILE_HEADER.size:]  # sans copie
+    size = w * h * 4
+    if size > MAX_TILE or (enc == ENC_ZSTD and zstd is None):
+        raise ValueError(f"tuile {w}x{h} refusée")
     if enc == ENC_ZSTD:
-        data = zstd.decompress(data)
+        data = zstd.ZstdDecompressor().decompress(data, size + 1)
     elif enc == ENC_DEFLATE:
-        data = zlib.decompress(data, wbits=-15)
-    if len(data) != w * h * 4:
+        data = zlib.decompressobj(wbits=-15).decompress(data, size + 1)
+    if len(data) != size:
         raise ValueError(f"tuile {w}x{h} : {len(data)} octets")
     return wid, x, y, w, h, data
+
+
+def checked_png(data: bytes, max_side: int) -> bytes:
+    """Image venue de l'invité : un vrai PNG d'au plus `max_side` de côté (lu dans l'en-tête,
+    avant tout décodage), sinon ValueError."""
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        raise ValueError("pas un PNG")
+    w, h = struct.unpack_from(">II", data, 16)
+    if not (0 < w <= max_side and 0 < h <= max_side):
+        raise ValueError(f"PNG {w}x{h} refusé")
+    return data
 
 
 class FrameReader:

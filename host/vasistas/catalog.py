@@ -409,6 +409,22 @@ function Install-One($id, $scope) {
     & winget @a *> $null
     return $LASTEXITCODE
 }
+# état seul : un seul appel (winget export) au lieu d'un `winget list` de 2 s par identifiant,
+# soit plus d'une minute pour le catalogue ; sans fichier exporté, retour à la lecture une à une
+$known = $null
+if ($action -eq 'status') {
+    $export = Join-Path $env:TEMP 'vasistas-winget.json'
+    Remove-Item $export -ErrorAction SilentlyContinue
+    winget export -o $export @common *> $null
+    if (Test-Path $export) {
+        try {
+            $known = @{}
+            (Get-Content $export -Raw -Encoding UTF8 | ConvertFrom-Json).Sources | ForEach-Object { $_.Packages } |
+                ForEach-Object { $known[$_.PackageIdentifier.ToLower()] = $true }
+        } catch { $known = $null }
+        Remove-Item $export -ErrorAction SilentlyContinue
+    }
+}
 $res = [ordered]@{}
 foreach ($id in $ids) {
     $code = 0
@@ -420,7 +436,7 @@ foreach ($id in $ids) {
         winget uninstall --id $id -e --silent @common *> $null
         $code = $LASTEXITCODE
     }
-    $inst = Test-Installed $id
+    $inst = if ($null -ne $known) { $known.ContainsKey($id.ToLower()) } else { Test-Installed $id }
     $ok = switch ($action) {
         'install' { $inst -or ($code -in @(@OKCODES@)) }
         'uninstall' { -not $inst }

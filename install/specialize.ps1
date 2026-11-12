@@ -47,4 +47,13 @@ Set-Reg 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' 'Promp
 # Pas de redémarrage automatique pour les mises à jour pendant une session
 Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAutoRebootWithLoggedOnUsers' 1
 
+# Pilotes jamais pris sur Windows Update, dès l'installation : la carte graphique accélérée se
+# présente avec les identifiants de la carte de l'hôte (AMD, NVIDIA) ; Windows y posait le vrai
+# pilote du fabricant, qui échoue (code 43) et empêche ensuite d'installer le pilote accel-virt.
+# Seule la recherche de pilotes est coupée : Windows Update reste actif.
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' 'ExcludeWUDriversInQualityUpdate' 1
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' 'DontSearchWindowsUpdate' 1
+Set-Reg 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching' 'SearchOrderConfig' 0
+Set-Reg 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Metadata' 'PreventDeviceMetadataFromNetwork' 1
+
 Stop-Transcript

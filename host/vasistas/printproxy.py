@@ -34,7 +34,9 @@ def rewrite_head(head: bytes) -> bytes:
     out = [lines[0]]
     for line in lines[1:]:
         name = line.split(b":", 1)[0].strip().lower()
-        if name in (b"host", b"connection", b"keep-alive"):
+        # Authorization : sur son socket local CUPS identifierait l'appelant comme l'utilisateur
+        # Linux (PeerCred) et lui ouvrirait l'administration ; Windows imprime sans s'identifier
+        if name in (b"host", b"connection", b"keep-alive", b"authorization", b"proxy-authorization"):
             continue
         out.append(line)
     # out finit par deux lignes vides (fin d'en-tête) : insérer avant
@@ -73,7 +75,10 @@ def main():
     head, rest = _read_head(fin)
     if head is None:
         return 1
-    if not ALLOWED.fullmatch(head.split(b"\r\n", 1)[0]):
+    # un saut de ligne nu serait pour CUPS une fin de ligne (voire d'en-tête) que ce relais ne
+    # voit pas : une seconde requête, vers /admin, passerait cachée dans la première
+    bare = head.replace(b"\r\n", b"")
+    if not ALLOWED.fullmatch(head.split(b"\r\n", 1)[0]) or b"\n" in bare or b"\r" in bare:
         os.write(fout, b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
         return 1
     cups = _connect()

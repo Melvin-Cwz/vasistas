@@ -12,5 +12,6 @@
   "Vasistas ne répond pas. Relancez une application Windows ou ouvrez le diagnostic.": "Vasistas is not responding. Open a Windows application again or open the diagnostics.",
   "Windows n'a pas répondu à temps. Réessayez dans un instant.": "Windows did not respond in time. Try again in a moment.",
   "Accès refusé. Ouvrez le diagnostic pour vérifier l'installation.": "Access denied. Open the diagnostics to check the installation.",
-  "Démarrage et panneau": "Startup and panel"
+  "Démarrage et panneau": "Startup and panel",
+  "Afficher le bureau de Windows": "Show the Windows desktop"
 }

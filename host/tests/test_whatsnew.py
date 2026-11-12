@@ -38,3 +38,13 @@ def test_fresh_install_and_old_version():
 def test_language_fallback():
     assert whatsnew.entries("en", DATA, since="0.6.0") == [("0.7.0", ["sept"])]
     assert whatsnew.entries("en", DATA, since="0.5.0", upto="0.6.0") == [("0.6.0", ["six en"])]
+
+
+def test_version_courante_et_mise_a_jour_depuis_0_10():
+    from vasistas import version
+    assert version.newer(version.VERSION, "0.10.0") and version.newer(version.VERSION, "0.11.0")
+    assert not version.newer("0.11.0", version.VERSION)
+    assert version.newer("1.0.0", "1.0.0-beta") and not version.newer("1.0.0-beta", "1.0.0")
+    # le nom d'archive de make-release.sh : vasistas-<version>.tar.gz
+    assert f"vasistas-{version.VERSION}.tar.gz" == "vasistas-1.0.0-beta.tar.gz"
+    assert whatsnew.pending({"seen_version": "0.11.0"}, "fr", current=version.VERSION)[0][0] == version.VERSION

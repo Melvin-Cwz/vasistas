@@ -75,5 +75,9 @@
   "Windows ne répond pas.": "Windows is not responding.",
   "La machine virtuelle ne démarre pas": "The virtual machine does not start",
   "Apparence et intégration": "Appearance and integration",
-  "Aucune application Windows dans le menu pour l'instant.": "No Windows app in the menu yet."
+  "Aucune application Windows dans le menu pour l'instant.": "No Windows app in the menu yet.",
+  "Fenêtres intégrées": "Integrated windows",
+  "Fenêtre indépendante": "Standalone window",
+  "Windows s'affiche en": "Windows is shown as",
+  "Fenêtres intégrées : chaque application Windows a sa propre fenêtre, comme une application Linux. Fenêtre indépendante : tout Windows tient dans une seule fenêtre, avec son bureau et sa barre des tâches, à la résolution de cette fenêtre.": "Integrated windows: each Windows application has its own window, like a Linux application. Standalone window: all of Windows fits in a single window, with its desktop and taskbar, at the resolution of that window."
 }

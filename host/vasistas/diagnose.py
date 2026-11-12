@@ -501,6 +501,30 @@ _GENERIC_LABELS = {"Documents", "Téléchargements", "Telechargements", "Downloa
                    "Pictures", "Musique", "Music", "Vidéos", "Videos", "Dossier"}
 
 
+_MAC = re.compile(r"(?i)(?<![0-9a-f:])[0-9a-f]{2}(?:[:-][0-9a-f]{2}){5}(?![0-9a-f:])")
+_IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
+# IPv6 : au moins deux « : » et un groupe hexadécimal ; les horaires (12:30:45) n'ont pas de lettre ni « :: »
+_IPV6 = re.compile(r"(?i)(?<![\w:.])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:.])")
+_URL_CREDS = re.compile(r"(://)[^/\s:@]+:[^/\s@]*@")
+_URL_SECRET = re.compile(r"(?i)([?&;](?:[\w-]*(?:token|key|secret|password|passwd|pwd|sig|auth)[\w-]*)=)[^&\s\"']*")
+_SSID = re.compile(r"(?i)^.*(?:\bessid\b|\bssid\b|nmcli).*$", re.M)
+
+
+def _ipv4(m):
+    ip = m.group(0)
+    if ip.startswith(("10.0.2.", "127.")) or any(int(p) > 255 for p in ip.split(".")):
+        return ip
+    return "<ip>"
+
+
+def _ipv6(m):
+    ip = m.group(0).lower()
+    # boucle locale, adresses locales de lien (fe80:) : conservées ; le reste est masqué
+    if ip in ("::1", "::") or ip.startswith("fe80:"):
+        return m.group(0)
+    return "<ipv6>" if "::" in ip or ip.count(":") >= 3 or any(c in ip for c in "abcdef") else m.group(0)
+
+
 def anonymize(text, home, user, host="", secrets=(), shares=(), drives=(), windows_user=""):
     """Remplace dans `text` tout ce qui désigne la personne : mots de passe, chemins et noms de
     fichiers des dossiers partagés, dossier personnel, nom d'utilisateur, machine, adresses."""
@@ -521,9 +545,16 @@ def anonymize(text, home, user, host="", secrets=(), shares=(), drives=(), windo
         text = text.replace(home, "~")
     # fichiers du dossier personnel (les dossiers cachés de configuration restent lisibles)
     text = re.sub(r"~/(?!\.)" + _PATH_END, "~/<chemin>", text, flags=re.M)
+    text = _URL_CREDS.sub(r"\1<secret>@", text)
     text = _EMAIL.sub("<courriel>", text)
+    text = _URL_SECRET.sub(r"\1<secret>", text)
+    text = _SSID.sub("<réseau Wi-Fi>", text)
+    text = _MAC.sub("<mac>", text)
+    text = _IPV4.sub(_ipv4, text)
+    text = _IPV6.sub(_ipv6, text)
     for word, repl in ((user, "<utilisateur>"), (windows_user, "<utilisateur>"), (host, "<machine>")):
-        if word and len(word) >= 3:
+        # 2 caractères suffisent : le mot doit être isolé ; un seul (« a ») détruirait le rapport
+        if word and len(word) >= 2:
             text = re.sub(r"(?<![\w.-])" + re.escape(word) + r"(?![\w-])", repl, text)
     return text
 

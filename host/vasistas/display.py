@@ -11,6 +11,12 @@ Windows n'a plus rien à capturer : l'hôte découpe chaque fenêtre dans l'écr
 
 Zéro copie (2026-09-29) : la mémoire partagée de ScanoutMap devient un dmabuf par
 /dev/udmabuf ; GTK l'affiche sans copie (GdkDmabufTexture). Sinon, repli sur la copie.
+
+Vasistas Beta (carte accélérée accel-virt, `-display dbus,gl=on`) : l'écran composé par la
+carte graphique arrive directement en dmabuf (ScanoutDMABUF2, ou ScanoutDMABUF), puis
+UpdateDMABUF pour chaque zone redessinée. Aucun pixel ne passe par le processeur ; QEMU
+attend notre réponse à UpdateDMABUF avant de laisser Windows redessiner, d'où une réponse
+immédiate. `fb` reste alors None : `has_frame` dit s'il y a une image.
 """
 
 import fcntl
@@ -95,6 +101,17 @@ LISTENER_XML = """
     </method>
     <property name="Interfaces" type="as" access="read"/>
   </interface>
+  <interface name="org.qemu.Display1.Listener.Unix.ScanoutDMABUF2">
+    <method name="ScanoutDMABUF2">
+      <arg type="ah" name="dmabuf" direction="in"/><arg type="u" name="x" direction="in"/>
+      <arg type="u" name="y" direction="in"/><arg type="u" name="width" direction="in"/>
+      <arg type="u" name="height" direction="in"/><arg type="au" name="offset" direction="in"/>
+      <arg type="au" name="stride" direction="in"/><arg type="u" name="num_planes" direction="in"/>
+      <arg type="u" name="fourcc" direction="in"/><arg type="u" name="backing_width" direction="in"/>
+      <arg type="u" name="backing_height" direction="in"/><arg type="t" name="modifier" direction="in"/>
+      <arg type="b" name="y0_top" direction="in"/>
+    </method>
+  </interface>
   <interface name="org.qemu.Display1.Listener.Unix.Map">
     <method name="ScanoutMap">
       <arg type="h" name="handle" direction="in"/><arg type="u" name="offset" direction="in"/>
@@ -122,6 +139,10 @@ class Screen:
         self.fb = None          # bytearray (copie) ou mmap (mémoire partagée)
         self.mapped = None
         self.dmabuf = None      # (fd, décalage) de l'écran partagé, pour une texture sans copie
+        # écran composé par la carte graphique (Vasistas Beta) : fd, fourcc, modificateur,
+        # décalage, rectangle affiché dans le tampon ; None hors carte accélérée
+        self.gpu = None
+        self.gpu_frames = 0     # UpdateDMABUF reçus : images composées par la carte graphique
         self.console = None
         self.listener = None
         self._keep = []
@@ -224,6 +245,12 @@ class Screen:
         Le pilote virtio-gpu de Windows la reçoit comme un nouvel écran branché."""
         if self.console is None:
             return
+        if vm.ACCEL:
+            # carte accélérée : le pilote suit la liste de modes du dispositif, pas SetUIInfo
+            from . import accel
+            fut = vm.qmp_worker().submit(lambda q: accel.set_resolution(q, width, height))
+            fut.add_done_callback(lambda f: f.exception() and log.warning("résolution : %s", f.exception()))
+            return
         self.console.call(None, CONSOLE_PATH, "org.qemu.Display1.Console", "SetUIInfo",
                           GLib.Variant("(qqiiuu)", (width_mm, height_mm, 0, 0, width, height)),
                           None, Gio.DBusCallFlags.NONE, -1, None, self._on_ui_info)
@@ -236,9 +263,16 @@ class Screen:
 
     # -- appels de QEMU --
 
+    @property
+    def has_frame(self):
+        return self.fb is not None or self.gpu is not None
+
     def _on_get_property(self, conn, sender, path, iface, prop):
         if prop == "Interfaces":
-            return GLib.Variant("as", ["org.qemu.Display1.Listener.Unix.Map"])
+            names = ["org.qemu.Display1.Listener.Unix.Map"]
+            if vm.ACCEL:
+                names.append("org.qemu.Display1.Listener.Unix.ScanoutDMABUF2")
+            return GLib.Variant("as", names)
         return None
 
     def _on_call(self, conn, sender, path, iface, method, params, invocation):
@@ -304,11 +338,51 @@ class Screen:
         x, y, w, h = params.unpack()
         self.on_damage(x, y, w, h)
 
+    # -- carte accélérée (dmabuf de la carte graphique) --
+
+    def _gpu_scanout(self, fd, x, y, w, h, offset, stride, fourcc, modifier, y0_top, bw, bh):
+        self._unmap()
+        if fourcc == 0x34325241:   # AR24 : Windows n'écrit pas d'alpha utile dans l'écran
+            fourcc = 0x34325258    # XR24, même disposition
+        self.gpu = {"fd": fd, "fourcc": fourcc, "modifier": modifier, "offset": offset, "stride": stride,
+                    "rect": (x, y, w, h), "backing": (bw or w, bh or h), "y0_top": y0_top}
+        self._set_size(w, h, stride)
+        log.info("écran sur la carte graphique : %dx%d, format %08x, modificateur %x%s", w, h, fourcc, modifier,
+                 ", retourné" if y0_top else "")
+        self.on_damage(0, 0, w, h)
+
+    def _m_ScanoutDMABUF(self, params, inv):
+        _h, w, h, stride, fourcc, modifier, y0_top = params.unpack()
+        fd = inv.get_message().get_unix_fd_list().get(0)
+        self._gpu_scanout(fd, 0, 0, w, h, 0, stride, fourcc, modifier, y0_top, w, h)
+
+    def _m_ScanoutDMABUF2(self, params, inv):
+        _fds, x, y, w, h, offsets, strides, planes, fourcc, bw, bh, modifier, y0_top = params.unpack()
+        fdlist = inv.get_message().get_unix_fd_list()
+        fds = [fdlist.get(i) for i in range(fdlist.get_length())]
+        if planes != 1 or not fds:
+            log.warning("écran de la carte accélérée en %d plans : non pris en charge", planes)
+            for fd in fds:
+                os.close(fd)
+            return
+        for extra in fds[1:]:
+            os.close(extra)
+        self._gpu_scanout(fds[0], x, y, w, h, offsets[0], strides[0], fourcc, modifier, y0_top, bw, bh)
+
+    def _m_UpdateDMABUF(self, params, inv):
+        x, y, w, h = params.unpack()
+        self.gpu_frames += 1
+        self.on_damage(x, y, w, h)
+
     def _m_Disable(self, params, inv):
         self._unmap()
         self.fb = None
 
     def _unmap(self):
+        if self.gpu is not None:
+            fd = self.gpu["fd"]
+            GLib.timeout_add_seconds(2, lambda: os.close(fd) or False)
+            self.gpu = None
         if self.dmabuf is not None:
             # la dernière texture peut encore s'en servir le temps d'une image
             fd = self.dmabuf[0]

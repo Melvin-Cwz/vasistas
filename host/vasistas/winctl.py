@@ -69,6 +69,14 @@ def wake():
     return control.request({"sleep": False}, timeout=5)
 
 
+def show_desktop():
+    """Ouvre la fenêtre qui montre tout le bureau de Windows (hôte `vasistas run` en marche)."""
+    res = control.request({"desktop": True}, timeout=10)
+    if res.get("error"):
+        raise RuntimeError(res["error"])
+    return res
+
+
 def resources():
     """Clé de la puissance choisie (balanced par défaut)."""
     key = vm.load_config().get("resources")
@@ -79,6 +87,7 @@ def set_resources(key):
     """Puissance allouée à Windows, appliquée au prochain démarrage."""
     c = vm.load_config()
     c["resources"] = key
+    c.pop("resources_custom", None)  # elles primeraient sur le profil : le choix resterait sans effet
     # pastille « Économie d'énergie » sur la carte d'ouverture des applications
     if key == "battery":
         c["mode"] = "battery"

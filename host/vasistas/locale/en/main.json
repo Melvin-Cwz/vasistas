@@ -47,5 +47,6 @@
   "   [non associées : {exts}]": "   [not assigned: {exts}]",
   "  [recouverte]": "  [covered]",
   "nombre de frappes pour mesurer la latence d'une fenêtre recouverte (0 : aucune)": "number of keystrokes to measure the latency of a covered window (0: none)",
-  "secondes de mesure de la cadence de DWM (0 : aucune)": "seconds of DWM composition rate measurement (0: none)"
+  "secondes de mesure de la cadence de DWM (0 : aucune)": "seconds of DWM composition rate measurement (0: none)",
+  "installer sans fenêtre QEMU (assistant)": "install without a QEMU window (setup assistant)"
 }

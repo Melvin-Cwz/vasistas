@@ -1,9 +1,10 @@
 """Assistant de configuration initiale de Vasistas (ouvert par l'application compagnon).
 
-Étapes : vérifications de l'ordinateur ; Windows (version, langue, licence, image ISO
-téléchargée chez Microsoft, pilotes) ; réglages (puissance, dossiers partagés) ; installation
-de Windows ; préparation de Windows et applications (Office, autres) ; fin. Chaque étape peut
-être refaite plus tard ; une VM déjà installée saute l'installation.
+Pages : vérifications de l'ordinateur ; Windows (version, langue, licence, image ISO
+téléchargée chez Microsoft, pilotes) ; réglages (puissance, dossiers partagés) ; choix des
+applications ; installation, d'une traite et sans intervention, avec ses étapes en entête
+(Windows, configuration, applications, pilotes graphiques, mises à jour) ; fin. Tout peut être
+refait plus tard ; un Windows déjà installé saute sa propre installation.
 """
 
 import os
@@ -74,7 +75,7 @@ def set_config(**values):
 class Wizard(Gtk.Window):
     def __init__(self, parent, on_done=None):
         super().__init__(title=_("Configuration de Vasistas"), transient_for=parent, modal=True,
-                         default_width=700, default_height=640, icon_name=APP_ID)
+                         default_width=720, default_height=680, icon_name=APP_ID)
         self.on_done = on_done
         self.cancel = threading.Event()
         header = Gtk.HeaderBar()
@@ -84,8 +85,8 @@ class Wizard(Gtk.Window):
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.SLIDE_LEFT_RIGHT, vexpand=True)
         self.pages = []
         self.index = 0
-        for build in (self.page_welcome, self.page_windows, self.page_settings, self.page_install,
-                      self.page_apps, self.page_done):
+        for build in (self.page_welcome, self.page_windows, self.page_settings, self.page_apps,
+                      self.page_install, self.page_done):
             name, widget = build()
             self.stack.add_named(widget, name)
             self.pages.append(name)
@@ -108,7 +109,7 @@ class Wizard(Gtk.Window):
         root.append(self.stack)
         root.append(bar)
         self.set_child(root)
-        self.connect("close-request", lambda *_: self.cancel.set() or False)
+        self.connect("close-request", lambda *_: self.on_close())
         self.index = 0
         self.update_nav()
 
@@ -480,7 +481,7 @@ class Wizard(Gtk.Window):
         drop = Gtk.DropDown.new_from_strings([f"{_(label)} · {_(hint)}" for _k, label, hint in RESOURCES])
         cur = vm.load_config().get("resources", "balanced")
         drop.set_selected(keys.index(cur) if cur in keys else 1)
-        drop.connect("notify::selected", lambda d, _p: set_config(resources=keys[d.get_selected()]))
+        drop.connect("notify::selected", lambda d, _p: set_config(resources=keys[d.get_selected()], resources_custom=None))
         box.append(drop)
 
         box.append(Granite.HeaderLabel.new(_("Dossiers visibles dans Windows")))
@@ -512,71 +513,14 @@ class Wizard(Gtk.Window):
                 items.append((path, free.pop(0), label))
         vm.save_shares(items)
 
-    # -- 4. installation de Windows --
-
-    def page_install(self):
-        box = self.page(_("Installation de Windows"), "", "system-software-install")
-        self.install_page = box
-        self.install_label = Gtk.Label(xalign=0, wrap=True)
-        box.append(self.install_label)
-        self.install_btn = Gtk.Button(label=_("Installer Windows"), halign=Gtk.Align.START)
-        self.install_btn.add_css_class(Granite.STYLE_CLASS_SUGGESTED_ACTION)
-        self.install_btn.connect("clicked", lambda *_: self.install_windows())
-        box.append(self.install_btn)
-        self.install_spin = Gtk.Spinner(halign=Gtk.Align.START)
-        box.append(self.install_spin)
-        box.append(dim(_("Une fenêtre affiche la progression de l'installation et se ferme automatiquement à la fin, "
-                         "après deux redémarrages de Windows. Aucune action n'est nécessaire pendant l'installation.")))
-        return "install", self.scrolled(box)
-
-    def refresh_install(self):
-        cfg = vm.load_config()
-        v = next((x for x in winiso.VERSIONS if x["key"] == cfg.get("windows_version")), winiso.VERSIONS[0])
-        lang = dict(winiso.LANGUAGES).get(cfg.get("windows_language"))
-        lang = _(lang) if lang else cfg.get("windows_language") or ""
-        self.install_page.subtitle.set_label(_("{version}, {language}, avec un compte local (sans compte "
-                                               "Microsoft).", version=_(v["label"]), language=lang.lower()))
-        installed = vm.DISK.exists()
-        running = getattr(self, "installing", False)
-        self.install_label.set_label(_("Windows est installé.") if installed and not running else
-                                     _("Installation en cours (20 à 40 minutes environ).") if running else
-                                     _("Prêt à installer Windows."))
-        self.install_btn.set_visible(not installed and not running)
-        self.next.set_sensitive(installed and not running)
-
-    def install_windows(self):
-        self.installing = True
-        self.install_spin.start()
-        self.refresh_install()
-        env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1]))
-
-        def work():
-            log = open(vm.DATA / "install.log", "ab")
-            rc = subprocess.run([sys.executable, "-m", "vasistas", "vm", "install"], env=env,
-                                stdout=log, stderr=log).returncode
-            GLib.idle_add(self.install_finished, rc)
-        threading.Thread(target=work, daemon=True).start()
-
-    def install_finished(self, rc):
-        self.installing = False
-        self.install_spin.stop()
-        self.refresh_install()
-        if rc != 0 or not vm.DISK.exists():
-            self.install_label.set_label(_("L'installation a échoué (code {code}). Détails dans le journal : {log}",
-                                           code=rc, log=vm.DATA / "install.log"))
-        return False
-
-    # -- 5. préparation de Windows et applications --
+    # -- 4. applications : seulement des choix, tout s'installe à l'étape suivante --
 
     def page_apps(self):
         from . import catalog
-        box = self.page(_("Applications"), _("Les applications sont installées dans Windows depuis les serveurs de "
-                                             "leurs éditeurs."),
+        box = self.page(_("Applications"), _("Cochez ce que vous voulez dans Windows. Rien ne s'installe ici : tout "
+                                             "part d'un seul clic à l'étape suivante, depuis les serveurs des "
+                                             "éditeurs."),
                         "applications-office")
-        self.prepare = Gtk.CheckButton(label=_("Installer les outils de Vasistas dans Windows (dossiers partagés, "
-                                               "pilotes)"),
-                                       active=True)
-        box.append(self.prepare)
         box.append(Granite.HeaderLabel.new("Microsoft Office"))
         self.office = Gtk.CheckButton(label=_("Installer Office"), active=True)
         box.append(self.office)
@@ -584,27 +528,30 @@ class Wizard(Gtk.Window):
         self.office_product = Gtk.DropDown.new_from_strings([_(p["label"]) for p in self.office_products])
         self.office_product.set_margin_start(28)
         self.office_product.set_halign(Gtk.Align.START)
+        self.office.connect("toggled", lambda c: self.office_product.set_sensitive(c.get_active()))
         box.append(self.office_product)
         box.append(dim(_("Choisissez l'offre de votre abonnement ou de votre licence. Office s'installe dans la "
                          "langue de Windows et s'active à la première ouverture. La page Installer de Vasistas "
                          "propose ensuite d'autres versions, langues et compléments (Visio, Project).")))
         box.append(Granite.HeaderLabel.new(_("Autres applications")))
-        flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=3,
+        flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, min_children_per_line=2, max_children_per_line=3,
                            column_spacing=12, row_spacing=4, homogeneous=True)
         self.app_checks = {}
         for a in catalog.APPS:
             chk = Gtk.CheckButton(label=_(a["label"]))
             chk.set_tooltip_text(_(a["description"]) if a.get("description") else "")
+            # un nom long passe à la ligne au lieu d'élargir la fenêtre
+            chk.get_last_child().set_wrap(True)
             self.app_checks[a["key"]] = chk
             flow.append(chk)
         box.append(flow)
-        self.apps_btn = Gtk.Button(label=_("Installer"), halign=Gtk.Align.START, margin_top=8)
-        self.apps_btn.add_css_class(Granite.STYLE_CLASS_SUGGESTED_ACTION)
-        self.apps_btn.connect("clicked", lambda *_: self.install_apps())
-        box.append(self.apps_btn)
-        self.apps_label = dim(_("Vous pouvez aussi passer cette étape et installer les applications plus tard depuis "
-                                "Vasistas."))
-        box.append(self.apps_label)
+        box.append(Granite.HeaderLabel.new(_("Mises à jour")))
+        self.update = Gtk.CheckButton(label=_("Mettre Windows à jour à la fin de l'installation"), active=True)
+        box.append(self.update)
+        box.append(dim(_("Comptez 20 à 60 minutes de plus. Sans cette option, Windows Update se lance plus tard "
+                         "depuis Vasistas.")))
+        box.append(dim(_("Tout reste modifiable ensuite : la page Installer de Vasistas ajoute ou retire des "
+                         "applications à tout moment.")))
         # déjà présentes d'après la dernière liste lue dans Windows
         from . import guestapps
         have = {a["id"] for a in guestapps.cached()}
@@ -613,57 +560,224 @@ class Wizard(Gtk.Window):
             self.office.set_label(_("Installer Office (déjà installé)"))
         return "apps", self.scrolled(box)
 
-    def install_apps(self):
-        from . import catalog, regional
-        from .companion_common import host_ready, spawn
+    # -- 5. installation : Windows, configuration, applications, pilotes, mises à jour --
+
+    def page_install(self):
+        from .screenview import ScreenView
+        from .stepper import Stepper
+        box = self.page(_("Installation"), "", "system-software-install")
+        self.install_page = box
+        self.stepper = Stepper()
+        box.append(self.stepper)
+        self.stage_title = Gtk.Label(xalign=0, wrap=True, margin_top=6)
+        self.stage_title.add_css_class(Granite.STYLE_CLASS_H3_LABEL)
+        box.append(self.stage_title)
+        self.stage_detail = dim("")
+        self.stage_detail.set_selectable(True)
+        box.append(self.stage_detail)
+        buttons = Gtk.Box(spacing=8, margin_top=6)
+        self.install_btn = Gtk.Button(label=_("Tout installer"))
+        self.install_btn.add_css_class(Granite.STYLE_CLASS_SUGGESTED_ACTION)
+        self.install_btn.connect("clicked", lambda *_: self.install_all())
+        buttons.append(self.install_btn)
+        self.desktop_btn = Gtk.ToggleButton(label=_("Afficher le bureau de Windows"))
+        self.desktop_btn.set_tooltip_text(_("Voir ce que fait Windows pendant l'installation, et lui répondre "
+                                            "au besoin avec la souris et le clavier"))
+        buttons.append(self.desktop_btn)
+        box.append(buttons)
+        self.screen = ScreenView()
+        self.screen_revealer = Gtk.Revealer(child=self.screen, vexpand=True,
+                                            transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
+        box.append(self.screen_revealer)
+        self.desktop_btn.connect("toggled", lambda *_: self.show_desktop())
+        self.install_page_scroll = self.scrolled(box)
+        self.install_page_scroll.connect("unmap", lambda *_: self.screen.stop())
+        self.installing = False
+        self.stage = None
+        return "install", self.install_page_scroll
+
+    def show_desktop(self):
+        shown = self.desktop_btn.get_active()
+        self.screen_revealer.set_reveal_child(shown)
+        (self.screen.start if shown else self.screen.stop)()
+
+    def choices(self):
+        """Ce que l'utilisateur a coché à la page Applications : (offre d'Office, autres applications,
+        mise à jour de Windows)."""
         product = self.office_products[self.office_product.get_selected()]["key"] if self.office.get_active() \
             else None
-        keys = [k for k, chk in self.app_checks.items() if chk.get_active()]
-        prepare = self.prepare.get_active()
-        if not (product or keys or prepare):
+        return product, [k for k, chk in self.app_checks.items() if chk.get_active()], self.update.get_active()
+
+    def driver_needed(self):
+        from . import accel
+        return bool(vm.ACCEL and accel.available() and accel.needs_setup(vm.load_config()))
+
+    def refresh_install(self):
+        from . import stepper
+        cfg = vm.load_config()
+        v = next((x for x in winiso.VERSIONS if x["key"] == cfg.get("windows_version")), winiso.VERSIONS[0])
+        lang = dict(winiso.LANGUAGES).get(cfg.get("windows_language"))
+        lang = _(lang) if lang else cfg.get("windows_language") or ""
+        self.install_page.subtitle.set_label(_("{version}, {language}, avec un compte local (sans compte "
+                                               "Microsoft).", version=_(v["label"]), language=lang.lower()))
+        if self.installing:
             return
-        self.apps_btn.set_sensitive(False)
+        installed = vm.DISK.exists()
+        product, keys, update = self.choices()
+        self.stepper.set_states(stepper.plan(installed, bool(product or keys), self.driver_needed(), update))
+        self.stage_title.set_label(_("Windows est déjà installé") if installed else _("Prêt à installer"))
+        self.stage_detail.set_label(
+            _("Vasistas enchaîne les étapes ci-dessus sans intervention de votre part. L'ordinateur reste "
+              "utilisable pendant ce temps ; comptez 30 à 90 minutes selon vos choix."))
+        self.install_btn.set_label(_("Terminer l'installation") if installed else _("Tout installer"))
+        self.install_btn.set_visible(True)
+        self.install_btn.set_sensitive(True)
+        self.next.set_sensitive(installed)
+
+    def set_stage(self, key, state, detail=None):
+        """Depuis le fil d'installation : état d'une étape, et texte sous l'entête."""
+        from . import stepper
+
+        def apply():
+            self.stepper.set_state(key, state)
+            if state == "active":
+                self.stage = key
+                self.stage_title.set_label(_(stepper.TITLES[key]))
+            if detail is not None:
+                self.stage_detail.set_label(detail)
+            return False
+        GLib.idle_add(apply)
+
+    def wait_guest(self, timeout=900):
+        """Attend que Windows réponde aux commandes (après un démarrage ou un redémarrage)."""
+        from .companion_common import host_ready, spawn
+        if host_ready() is None:
+            spawn("run")
+        vm.start()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline and not self.cancel.is_set():
+            st = host_ready()
+            if st and st.get("guest_ready"):
+                try:
+                    if control.request({"exec": "exit 0"}, timeout=30).get("code") == 0:
+                        return
+                except (OSError, RuntimeError):
+                    pass
+            time.sleep(2)
+        raise RuntimeError(_("Windows ne répond pas"))
+
+    def install_all(self):
+        from . import stepper
+        product, keys, update = self.choices()
+        driver = self.driver_needed()
+        self.installing = True
+        self.stage = None
+        self.cancel.clear()
+        self.install_btn.set_visible(False)
+        self.back.set_sensitive(False)
         self.next.set_sensitive(False)
+        self.stepper.set_states(stepper.plan(vm.DISK.exists(), bool(product or keys), driver, update))
+        threading.Thread(target=self.install_work, args=(product, keys, driver, update),
+                         name="vasistas-install-all", daemon=True).start()
 
-        def say(text):
-            GLib.idle_add(self.apps_label.set_label, text)
+    def install_work(self, product, keys, driver, update):
+        from . import accel, catalog, regional
+        note = ""
+        try:
+            if not vm.DISK.exists():
+                self.set_stage("windows", "active", _("20 à 40 minutes environ, avec deux redémarrages de "
+                                                      "Windows. Aucune action n'est nécessaire."))
+                env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1]))
+                with open(vm.DATA / "install.log", "ab") as log:
+                    rc = subprocess.run([sys.executable, "-m", "vasistas", "vm", "install", "--headless"],
+                                        env=env, stdout=log, stderr=log).returncode
+                if rc != 0 or not vm.DISK.exists():
+                    raise RuntimeError(_("l'installation de Windows a échoué (code {code}). Détails dans le "
+                                         "journal : {log}", code=rc, log=vm.DATA / "install.log"))
+                self.set_stage("windows", "done")
 
-        def work():
-            try:
-                say(_("Démarrage de Windows…"))
-                if host_ready() is None:
-                    spawn("run")
-                vm.start()
-                for _i in range(300):
-                    st = host_ready()
-                    if st and st.get("guest_ready"):
-                        break
-                    time.sleep(1)
-                else:
-                    raise RuntimeError(_("Windows ne répond pas"))
-                if prepare:
-                    say(_("Préparation de Windows (outils de Vasistas)…"))
-                    script = (vm.INSTALL_DIR / "configure-windows.ps1").read_text(encoding="utf-8-sig")
-                    res = control.request({"exec": script}, timeout=1800)
-                    if res.get("code"):
-                        raise RuntimeError(_("préparation de Windows : {error}", error=(res.get("out") or "")[-300:]))
+            self.set_stage("configure", "active", _("Démarrage de Windows, puis installation des outils de "
+                                                    "Vasistas (dossiers partagés, pilotes)."))
+            self.wait_guest()
+            res = control.request({"exec": vm.configure_script()}, timeout=1800)
+            if res.get("code"):
+                raise RuntimeError(_("préparation de Windows : {error}", error=(res.get("out") or "")[-300:]))
+            self.set_stage("configure", "done")
+
+            if product or keys:
                 if product:
-                    say(_("Installation d'Office… (10 à 30 minutes)"))
+                    self.set_stage("apps", "active", _("Office : 10 à 30 minutes."))
                     r = catalog.install_office(product)
                     if not r.get("ok", r.get("code") == 0):
                         raise RuntimeError(_("installation d'Office : code {code}", code=r.get("code")))
                 if keys:
-                    say(_("Installation des autres applications…"))
+                    names = ", ".join(_(catalog.APPS_BY_KEY[k]["label"]) for k in keys)
+                    self.set_stage("apps", "active", _("Applications : {apps}.", apps=names))
                     res = catalog.install_apps(keys, language=regional.windows_locale())
                     failed = [_(catalog.APPS_BY_KEY[k]["label"]) for k, r in res.items() if not r.get("ok")]
                     if failed:
                         raise RuntimeError(_("applications non installées : {apps}", apps=", ".join(failed)))
-                say(_("Toutes les applications sélectionnées sont installées."))
-            except (OSError, RuntimeError, SystemExit, ValueError) as e:
-                say(_("Échec : {error}", error=e))
-            GLib.idle_add(self.apps_btn.set_sensitive, True)
-            GLib.idle_add(self.next.set_sensitive, True)
-        threading.Thread(target=work, daemon=True).start()
+                self.set_stage("apps", "done")
+
+            if driver:
+                self.set_stage("driver", "active", accel.credits())
+                accel.install(say=lambda text: None)
+                self.wait_guest()
+                self.set_stage("driver", "done")
+
+            if update:
+                self.set_stage("update", "active", _("Recherche, téléchargement et installation des mises à "
+                                                     "jour : 20 à 60 minutes."))
+                note = self.windows_update()
+                self.set_stage("update", "failed" if note else "done")
+            GLib.idle_add(self.install_finished, True, note)
+        except (OSError, RuntimeError, SystemExit, ValueError) as e:
+            self.set_stage(self.stage or "windows", "failed", _("Échec : {error}", error=e))
+            GLib.idle_add(self.install_finished, False, "")
+
+    def windows_update(self):
+        """Mises à jour de Windows ; rend une remarque si elles n'ont pas pu être installées : ce
+        n'est pas un échec de l'installation, Windows Update reste disponible dans Vasistas."""
+        try:
+            script = (vm.INSTALL_DIR / "windows-update.ps1").read_text(encoding="utf-8-sig")
+            res = control.request({"exec": script}, timeout=3 * 3600)
+            if res.get("code") == 3010:
+                self.set_stage("update", "active", _("Redémarrage de Windows pour terminer les mises à jour."))
+                vm.stop(timeout=1800)
+                self.wait_guest(timeout=1800)
+            elif res.get("code"):
+                raise RuntimeError((res.get("out") or "").strip()[-200:])
+            set_config(last_windows_update=int(time.time()))
+            return ""
+        except (OSError, RuntimeError) as e:
+            return _("Les mises à jour de Windows n'ont pas pu être installées ({error}) : lancez Windows "
+                     "Update plus tard depuis Vasistas.", error=e)
+
+    def install_finished(self, ok, note):
+        self.installing = False
+        self.back.set_sensitive(True)
+        self.next.set_sensitive(vm.DISK.exists())
+        if ok:
+            self.stage_title.set_label(_("Installation terminée"))
+            self.stage_detail.set_label(note or _("Windows et vos applications sont prêts : cliquez sur Suivant."))
+        else:
+            self.install_btn.set_label(_("Réessayer"))
+            self.install_btn.set_visible(True)
+        return False
+
+    def on_close(self):
+        """Fenêtre fermée pendant l'installation de Windows : QEMU, sans fenêtre, est arrêté avec
+        elle (le disque inachevé est supprimé par `vm install`)."""
+        self.cancel.set()
+        self.screen.stop()
+        if self.installing and self.stage == "windows":
+            try:
+                qmp = vm.Qmp(timeout=3)
+                qmp.cmd("quit")
+                qmp.close()
+            except (OSError, EOFError, RuntimeError):
+                pass
+        return False
 
     # -- 6. fin --
 

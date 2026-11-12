@@ -419,11 +419,16 @@ function Get-PowerAc($sub, $setting) {
     if ($hex.Count -ge 2) { [Convert]::ToInt64($hex[-2], 16) } else { $null }
 }
 
-$title = 'Réglages de la machine (veille, verrouillage, UAC, mises à jour)'
+$title = 'Réglages de la machine (veille, verrouillage, UAC, mises à jour, pilotes)'
 $machine = @(
     (RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization' 'NoLockScreen' 1),
     (RegValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' 'PromptOnSecureDesktop' 0),
-    (RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAutoRebootWithLoggedOnUsers' 1)
+    (RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAutoRebootWithLoggedOnUsers' 1),
+    # pilotes jamais pris sur Windows Update (voir specialize.ps1)
+    (RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' 'ExcludeWUDriversInQualityUpdate' 1),
+    (RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' 'DontSearchWindowsUpdate' 1),
+    (RegValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching' 'SearchOrderConfig' 0),
+    (RegValue 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Metadata' 'PreventDeviceMetadataFromNetwork' 1)
 )
 $power = [ordered]@{
     'monitor-timeout-ac'   = @('SUB_VIDEO', 'VIDEOIDLE')
@@ -577,6 +582,26 @@ public static class VasistasLogon {
             }
         }
     } catch { Step autologon $title failed $_.Exception.Message }
+}
+
+# -- 8b. copies du fichier de réponses --
+# Windows garde une copie de autounattend.xml (mot de passe en clair) et le journal PowerShell
+# peut avoir enregistré la commande de création du compte : tout est supprimé.
+
+if (-not $Check) {
+    $title = 'Copies du mot de passe laissées par l''installation'
+    try {
+        foreach ($g in 'C:\Windows\Panther\unattend*.xml', 'C:\Windows\Panther\UnattendGC\*',
+                       'C:\Windows\System32\Sysprep\unattend*.xml', 'C:\Windows\System32\Sysprep\Panther\unattend*.xml') {
+            Remove-Item -Path $g -Force -ErrorAction SilentlyContinue
+        }
+        wevtutil.exe cl 'Microsoft-Windows-PowerShell/Operational' 2>$null
+        # journal classique : ses événements 400/403/600 gardent la ligne de commande entière de
+        # powershell.exe (HostApplication), donc celle de New-LocalUser avec le mot de passe
+        wevtutil.exe cl 'Windows PowerShell' 2>$null
+        Remove-Item -Path "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -Force -ErrorAction SilentlyContinue
+        Step cleanup $title done
+    } catch { Step cleanup $title failed $_.Exception.Message }
 }
 
 # -- 9. bilan --

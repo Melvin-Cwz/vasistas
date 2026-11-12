@@ -362,6 +362,38 @@ foreach ($k in 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run', 'HKLM:\SOF
      "title": N_("Teams dans Windows"),
      "subtitle": N_("Doublon de Teams sous Linux (Microsoft 365 en ligne)"),
      "appx": ["MSTeams"]},
+    # listes tirées de Win11Debloat (Raphire, MIT), tag 2026.08.24 : voir vendor/win11debloat. Exclus exprès :
+    # Office Hub, Power BI du Store, OneNote, Outlook, Courrier et Calendrier, Store, Edge, App Installer
+    {"key": "apps-bloat", "group": "apps", "level": 2, "reversible": False,
+     "title": N_("Autres applications Microsoft inutiles"),
+     "subtitle": N_("Bing Finance, Sport, Voyages, Cuisine, Santé et Traduction, 3D Builder et Viewer, Print 3D, "
+                    "Réalité mixte, Skype, Messages, Cartes, Journal, Sway, Films et TV, Xbox, Famille, Cortana, "
+                    "Teams classique, PC Manager, Premiers pas, Test de débit"),
+     "appx": [
+      "Microsoft.3DBuilder", "Microsoft.549981C3F5F10", "Microsoft.BingFinance", "Microsoft.BingFoodAndDrink",
+      "Microsoft.BingHealthAndFitness", "Microsoft.BingSports", "Microsoft.BingTranslator",
+      "Microsoft.BingTravel", "Microsoft.Windows.AIHub", "Microsoft.PCManager", "Microsoft.Getstarted",
+      "Microsoft.Messaging", "Microsoft.Microsoft3DViewer", "Microsoft.MicrosoftJournal",
+      "Microsoft.MixedReality.Portal", "Microsoft.NetworkSpeedTest", "Microsoft.News", "Microsoft.Office.Sway",
+      "Microsoft.OneConnect", "Microsoft.Print3D", "Microsoft.SkypeApp", "Microsoft.WindowsMaps",
+      "Microsoft.XboxApp", "Microsoft.ZuneVideo", "MicrosoftCorporationII.MicrosoftFamily", "MicrosoftTeams"
+     ]},
+    {"key": "apps-thirdparty", "group": "apps", "level": 3, "reversible": False,
+     "title": N_("Applications tierces préinstallées"),
+     "subtitle": N_("Jeux, streaming, réseaux sociaux, WinZip, Duolingo, Netflix, TikTok… "
+                    "(liste de Win11Debloat ; souvent absentes d'une image Windows 11 Pro)"),
+     "appx": [
+      "ACGMediaPlayer", "ActiproSoftwareLLC", "AdobeSystemsIncorporated.AdobePhotoshopExpress",
+      "Amazon.com.Amazon", "AmazonVideo.PrimeVideo", "Asphalt8Airborne", "AutodeskSketchBook",
+      "CaesarsSlotsFreeCasino", "COOKINGFEVER", "CyberLinkMediaSuiteEssentials", "DisneyMagicKingdoms",
+      "Disney.37853FC22B2CE", "DrawboardPDF", "Duolingo-LearnLanguagesforFree", "EclipseManager",
+      "FACEBOOK.FACEBOOK", "FarmVille2CountryEscape", "Flipboard", "HiddenCity", "HULULLC.HULUPLUS",
+      "iHeartRadio", "Facebook.Instagram", "king.com.BubbleWitch3Saga", "king.com.CandyCrushSaga",
+      "king.com.CandyCrushSodaSaga", "LinkedInforWindows", "MarchofEmpires", "4DF9E0F8.Netflix",
+      "NYTCrossword", "OneCalendar", "PandoraMediaInc", "PhototasticCollage", "PicsArt-PhotoStudio",
+      "PolarrPhotoEditorAcademicEdition", "flaregamesGmbH.RoyalRevolt", "Sidia.LiveWallpaper", "SlingTV",
+      "SpotifyAB.SpotifyMusic", "BytedancePte.Ltd.TikTok", "TuneInRadio", "WinZipUniversal"
+     ]},
 
     # -- niveau Ultra : tout ce qu'Office et Power BI n'utilisent pas. Gardés exprès : capture
     # d'écran (CaptureService, l'agent filme par WGC), notifications (WpnService, bulles d'Outlook),

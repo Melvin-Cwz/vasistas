@@ -129,5 +129,9 @@
   "Journaux de suivi au démarrage": "Startup trace sessions",
   "Sessions de traçage que Windows ouvre à chaque démarrage pour la télémétrie, le Wi-Fi, Defender, le réseau et le disque ; les journaux d'événements restent (prend effet au redémarrage)": "Trace sessions Windows opens at every startup for telemetry, Wi-Fi, Defender, networking and disk; event logs stay (takes effect after a restart)",
   "Fichier d'échange de 4 à 16 Go": "Paging file from 4 to 16 GB",
-  "Taille réglée à la main au lieu de la gestion automatique de Windows ; au-dessous de 16 Go, Power BI manque de mémoire (prend effet au redémarrage)": "Size set by hand instead of automatic management by Windows; below 16 GB, Power BI runs out of memory (takes effect after a restart)"
+  "Taille réglée à la main au lieu de la gestion automatique de Windows ; au-dessous de 16 Go, Power BI manque de mémoire (prend effet au redémarrage)": "Size set by hand instead of automatic management by Windows; below 16 GB, Power BI runs out of memory (takes effect after a restart)",
+  "Autres applications Microsoft inutiles": "Other unneeded Microsoft apps",
+  "Bing Finance, Sport, Voyages, Cuisine, Santé et Traduction, 3D Builder et Viewer, Print 3D, Réalité mixte, Skype, Messages, Cartes, Journal, Sway, Films et TV, Xbox, Famille, Cortana, Teams classique, PC Manager, Premiers pas, Test de débit": "Bing Finance, Sports, Travel, Food, Health and Translator, 3D Builder and Viewer, Print 3D, Mixed Reality, Skype, Messaging, Maps, Journal, Sway, Movies & TV, Xbox, Family, Cortana, classic Teams, PC Manager, Get Started, Network Speed Test",
+  "Applications tierces préinstallées": "Preinstalled third-party apps",
+  "Jeux, streaming, réseaux sociaux, WinZip, Duolingo, Netflix, TikTok… (liste de Win11Debloat ; souvent absentes d'une image Windows 11 Pro)": "Games, streaming, social networks, WinZip, Duolingo, Netflix, TikTok… (Win11Debloat list; often absent from a Windows 11 Pro image)"
 }

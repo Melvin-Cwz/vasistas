@@ -46,6 +46,7 @@ def main(argv=None):
     p_vm = sub.add_parser("vm", help=_("machine virtuelle"))
     p_vm.add_argument("action", choices=["install", "start", "stop", "status"])
     p_vm.add_argument("--force", action="store_true", help=_("réinstaller par-dessus le disque existant"))
+    p_vm.add_argument("--headless", action="store_true", help=_("installer sans fenêtre QEMU (assistant)"))
 
     sub.add_parser("run", help=_("afficher les fenêtres de l'invité"))
     p_launch = sub.add_parser("launch", help=_("lancer un programme Windows"))
@@ -95,6 +96,8 @@ def main(argv=None):
     p_rest.add_argument("action", choices=["list", "create", "revert", "delete"])
     p_rest.add_argument("name", nargs="?", help=_("nom du point (create : facultatif)"))
     p_rest.add_argument("--yes", action="store_true", help=_("exécuter revert sans demander de confirmation"))
+    p_accel = sub.add_parser("accel", help=_("Vasistas Beta : carte graphique accélérée (status|gpus|install|remove)"))
+    p_accel.add_argument("action", choices=["status", "gpus", "install", "remove"])
     p_diag = sub.add_parser("diagnose", help=_("vérifier l'ordinateur et Vasistas"))
     p_diag.add_argument("--report", action="store_true", help=_("rapport complet, anonymisé, à copier"))
 
@@ -106,7 +109,7 @@ def main(argv=None):
     if args.cmd == "vm":
         from . import vm
         if args.action == "install":
-            return vm.install(force=args.force)
+            return vm.install(force=args.force, headless=args.headless)
         if args.action == "start":
             vm.start()
         elif args.action == "stop":
@@ -221,6 +224,9 @@ def main(argv=None):
 
     if args.cmd == "restore":
         return _restore(args)
+
+    if args.cmd == "accel":
+        return _accel(args)
 
     if args.cmd == "diagnose":
         from . import diagnose
@@ -338,5 +344,35 @@ def _restore(args):
         return 1
 
 
+def _accel(args):
+    import json
+    from . import accel, power, vm
+    if not vm.ACCEL:
+        print(_("Commande de Vasistas Beta : lancez-la avec VASISTAS_PROFILE=beta."), file=sys.stderr)
+        return 2
+    if args.action == "gpus":
+        for c in accel.gpus(refresh=True):
+            print(f"{c['kind']:10} {c['vendor']:04x}:{c['device']:04x} {c['uuid']}  {c['name']}  "
+                  f"{c.get('render_node') or ''}")
+        return 0
+    if args.action == "status":
+        cfg = vm.load_config()
+        lacking = accel.missing()
+        plan = accel.plan(cfg, power.boot_profile(cfg)) if not lacking else None
+        print(json.dumps({
+            "accel_virt": accel.version(), "compilation": "complète" if not lacking else
+            [str(x) for x in lacking], "pilote_windows": "installé" if not accel.needs_setup(cfg) else "à installer",
+            "carte": plan and plan["gpu"] and plan["gpu"]["name"], "affichage": plan and plan["display_node"],
+            "fenetre_memoire_mo": plan and plan["hostmem"], "vm": vm.status()}, ensure_ascii=False, indent=1))
+        return 0
+    try:
+        ok = (accel.install if args.action == "install" else accel.remove)()
+    except (OSError, RuntimeError) as e:
+        print(e, file=sys.stderr)
+        return 1
+    return 0 if ok else 1
+
+
 if __name__ == "__main__":
     sys.exit(main())
+

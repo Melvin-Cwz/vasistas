@@ -1,241 +1,255 @@
 <p align="center">
-  <img src="data/icons/hicolor/128x128/apps/io.github.melvincouwez.Vasistas.svg" width="128" height="128" alt="Logo de Vasistas">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/en-tete-sombre.svg">
+    <img src="docs/assets/en-tete-clair.svg" alt="Vasistas : vos applications Windows, sur votre bureau Linux. Version 1.0 (Bêta)" width="100%">
+  </picture>
 </p>
-
-<h1 align="center">Vasistas</h1>
-
-<p align="center">Les applications Windows sur le bureau Linux, fenêtre par fenêtre.<br>
-Une machine virtuelle légère et maîtrisée, assez fluide pour les outils de travail, sans bureau à distance.</p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Microsoft Word, ouvert dans la machine virtuelle Windows, à côté de l'application Vasistas, sur un fond d'écran d'elementary OS">
-  <br>
-  <sub>Word, ouvert dans la machine virtuelle Windows, à côté de l'application Vasistas (capture d'une version antérieure).</sub>
+  <a href="#installer">Installer</a> ·
+  <a href="#ce-que-ça-change-au-quotidien">Fonctions</a> ·
+  <a href="#windows-ce-quil-vous-faut">Windows</a> ·
+  <a href="#vie-privée">Vie privée</a> ·
+  <a href="#crédits">Crédits</a> ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a>
 </p>
 
-Vasistas fait tourner Windows dans une machine virtuelle et affiche ses applications sur le
-bureau Linux comme des applications ordinaires. Word, Excel ou Power BI s'ouvrent depuis le menu
-Applications et ont leur propre icône dans le dock. Leurs fenêtres se déplacent, se
-redimensionnent et s'alternent comme les autres fenêtres. Le bureau de Windows reste caché : seules les
-applications utilisées sont visibles.
+Vasistas fait tourner Windows en arrière-plan, dans une machine virtuelle, et ne montre que ce
+dont vous avez besoin : vos applications. Word, Excel, Outlook ou Power BI s'ouvrent depuis le
+menu Applications, ont leur icône dans le dock, et se déplacent, se redimensionnent et
+s'alternent comme n'importe quelle autre fenêtre. Pas de bureau Windows à jongler, pas de
+connexion à distance, pas de flux vidéo.
 
-Vasistas n'utilise ni session distante ni flux vidéo. Windows tourne sur votre ordinateur,
-dans une machine virtuelle que Vasistas contrôle, aussi légère que possible et assez fluide
-pour les outils de travail du quotidien.
+<p align="center">
+  <img src="docs/assets/capture-accueil.png" alt="L'accueil de l'application Vasistas : l'état de Windows, le choix du mode d'affichage, les applications et les actions recommandées" width="85%">
+  <br>
+  <sub>L'accueil de l'application Vasistas : l'état de Windows, le mode d'affichage et les actions recommandées.</sub>
+</p>
 
-Vasistas est conçu pour elementary OS et devrait fonctionner sur d'autres systèmes basés sur
-Debian ou Ubuntu avec GTK 4 et Granite. La version 0.9 est une bêta : attendez-vous à des
-défauts, et gardez une copie de vos documents importants.
+Pour qui ? Pour celles et ceux qui ont choisi Linux (elementary OS en priorité) mais dépendent
+encore d'Office ou de Power BI. Vasistas est fait pour le travail de bureau, pas pour les jeux.
 
-## Notre approche
+> **Version 1.0 (Bêta).** Vasistas fonctionne au quotidien mais reste en bêta : attendez-vous à
+> des défauts, et gardez une copie de vos documents importants.
 
-Maîtrisée, parce que nous choisissons et contrôlons chaque élément : la machine virtuelle est
-lancée directement avec QEMU, l'écran, le clavier, la souris et le presse-papiers passent par
-notre propre canal, et un petit agent dans Windows s'occupe des fenêtres. Windows est installé
-depuis le support de Microsoft avec des réglages adaptés à cet usage, par exemple sans écran de
-verrouillage et avec des mises à jour installées au moment que vous choisissez.
+> **Un immense merci à [acceleration3](https://github.com/acceleration3).** La carte graphique
+> accélérée de Vasistas, ce qui le rend fluide, est entièrement son travail : le pilote Windows,
+> les pilotes Direct3D, Vulkan et OpenGL, le moteur de rendu côté Linux, tout cela vient de
+> [accel-virt](https://github.com/acceleration3/accel-virt) et de
+> [LSW](https://github.com/acceleration3/linux-subsystem-windows). Vasistas ne fait que
+> l'intégrer à un bureau et à une application. Tout le mérite lui revient : allez voir et
+> soutenir son projet.
 
-Légère, parce qu'aucun flux vidéo n'est encodé ni décodé : l'image de l'écran est lue dans une
-mémoire partagée avec la machine virtuelle. Windows se met en pause quand vous ne l'utilisez
-pas, et la mémoire dont Windows n'a pas besoin revient à Linux au fur et à mesure. Une étape
-facultative retire la télémétrie et des services inutiles pour cet usage. Sur notre machine, avec Outlook ouvert, la
-machine virtuelle utilise environ 4 Go sur les 8 Go qui lui sont attribués.
+## Ce que ça change au quotidien
 
-Assez fluide pour travailler : la saisie, le défilement et le passage entre Word, Excel,
-Outlook ou Power BI se font sans saccade. Dans nos mesures, une touche apparaît à l'écran en 25 à
-40 millisecondes environ. Vasistas n'est pas réglé pour la 3D ni les jeux (voir plus bas).
+- **De vraies fenêtres.** Chaque fenêtre de Windows est une fenêtre du bureau : icône dans le
+  dock, place dans le sélecteur de fenêtres, menus et infobulles au bon endroit. Si vous voulez
+  voir Windows en entier, le bouton « Afficher le bureau de Windows » l'ouvre dans une fenêtre.
+- **Vos fichiers.** Documents et Téléchargements sont partagés avec Windows. Un double-clic sur
+  un `.docx`, `.xlsx` ou `.pbix` dans Fichiers l'ouvre dans l'application Windows qui lui
+  correspond.
+- **Copier-coller, son, impression.** Le texte et les images passent dans les deux sens ; le son
+  et le micro fonctionnent (le micro n'est lu que lorsqu'une application l'ouvre) ; vos
+  imprimantes Linux sont disponibles dans Windows.
+- **Fluide.** Windows dispose d'une carte graphique accélérée (voir plus bas) : l'affichage tient
+  60 images par seconde, au lieu de 28 sans elle. La frappe apparaît en moins de 40 ms.
+- **Économe.** Windows se met en pause quand vous ne l'utilisez pas et rend sa mémoire à Linux.
+  Il reçoit moins de puissance sur batterie, plus quand Power BI est ouvert.
+- **Deux façons de travailler.** *Mode intégré* (une fenêtre par application) ou
+  *mode bureau* (tout Windows dans une seule fenêtre, à la résolution exacte de la
+  fenêtre, barre des tâches comprise).
+- **Plusieurs écrans.** Vous choisissez l'écran où s'ouvre chaque application. Vasistas retient
+  la taille et l'écran de chacune, et « Réinitialiser les affichages » remet tout en place.
+- **Un bureau cohérent.** Windows suit votre mode sombre et votre couleur d'accent. Ses
+  notifications deviennent celles du bureau, et les icônes de sa zone de notification
+  (OneDrive, Teams…) apparaissent dans le panneau.
+- **Sans mauvaise surprise.** Un point de restauration est créé avant l'allègement de Windows
+  et, si vous le voulez, avant chaque mise à jour ou installation. On revient en arrière en un
+  clic.
+- **Un tableau de bord et un diagnostic.** L'application Vasistas démarre ou arrête Windows,
+  choisit les applications du menu et les types de fichiers à ouvrir, allège Windows, cherche
+  les mises à jour, et lance un diagnostic qui répare ce qu'il peut et produit un rapport sans
+  donnée personnelle.
+- En français et en anglais.
 
-## Ce que nous visons
+## Installer
 
-- Chaque fenêtre d'une application Windows est une vraie fenêtre du bureau, avec sa place dans
-  le dock et dans le sélecteur de fenêtres. Les menus, les boîtes de dialogue et les
-  infobulles apparaissent à l'emplacement attendu.
-- Les dossiers Documents et Téléchargements apparaissent comme des lecteurs dans Windows, et
-  les dossiers Documents, Images ou Téléchargements de Windows peuvent pointer vers eux. Un
-  double-clic sur un fichier `.docx`, `.xlsx` ou `.pbix` dans Fichiers l'ouvre dans
-  l'application Windows correspondante.
-- Le texte, le texte mis en forme et les images se copient et se collent dans les deux sens.
-- Windows joue le son par PipeWire et peut utiliser le micro. Vasistas lit le micro seulement
-  lorsqu'une application Windows l'a ouvert. Le son peut être coupé dans l'application Vasistas.
-- Windows prend l'échelle de l'écran qui contient la plupart de ses fenêtres, et les fenêtres
-  de cet écran sont affichées pixel pour pixel, donc le texte reste net. Cliquer d'un écran à
-  l'autre ne change pas l'échelle. Déplacer des fenêtres d'un écran à l'autre peut la changer,
-  une fois le déplacement terminé.
-- Windows se met en pause quand vous ne l'utilisez pas et reprend au clic suivant. La mémoire
-  dont Windows n'a pas besoin revient à Linux.
-- Un assistant d'installation prépare Windows dans la langue choisie. Les versions
-  d'évaluation de 90 jours se téléchargent directement par les liens publics de Microsoft.
-  Pour les autres versions, l'assistant ouvre la page officielle de Microsoft, puis vous
-  sélectionnez le fichier ISO téléchargé. L'installation se fait sans intervention, avec
-  un compte local, puis l'assistant installe Microsoft Office et d'autres applications
-  courantes.
-- Vous choisissez l'écran où s'ouvre chaque application (l'écran actif, le dernier utilisé ou
-  un écran précis). Vasistas retient la taille et l'écran de chaque application pour chaque
-  combinaison d'écrans, n'ouvre jamais une fenêtre plus grande que son écran, et
-  « Réinitialiser les affichages » (application Vasistas, indicateur du panneau ou
-  `vasistas reset-windows`) remet chaque fenêtre en place, centrée, à une taille raisonnable.
-  Vasistas fait aussi cette réinitialisation automatiquement quand un écran est branché ou
-  débranché.
-- Windows suit le bureau : mode sombre, couleur d'accent et lissage des polices (niveaux de
-  gris ou ClearType). Les notifications de Windows deviennent des notifications du bureau, et
-  les icônes de la zone de notification de Windows (OneDrive, Teams…) apparaissent dans le
-  panneau.
-- Les imprimantes de Linux sont disponibles dans Windows, sans ouvrir CUPS au réseau.
-- Un indicateur dans le panneau montre si Windows est démarré, ouvre les applications
-  récentes, et démarre, met en veille ou arrête Windows.
-- Un seul curseur règle l'affichage de Windows : Optimisé pour le courrier et les documents,
-  Équilibré, ou Fluide pour Power BI, la vidéo et les longs défilements. Une application peut
-  garder son propre mode tant qu'elle est au premier plan.
-- La puissance attribuée à Windows s'adapte à la situation : moins sur batterie, plus quand une
-  application lourde comme Power BI est ouverte. Windows peut être préparé à l'ouverture de session, démarré en veille,
-  mis en veille quand l'écran se verrouille, et arrêté après un délai sans fenêtre ouverte.
-- Vasistas crée des points de restauration du disque de Windows avant l'allègement et, si vous
-  activez l'option, avant Windows Update et avant chaque installation. Vous pouvez revenir à
-  l'un d'eux en un clic.
-- L'application Vasistas a un tableau de bord. Elle démarre ou arrête Windows, choisit les
-  applications qui apparaissent dans le menu et les types de fichiers qui s'ouvrent dans
-  Windows, allège Windows et vérifie les mises à jour. Elle lance aussi un diagnostic, qui
-  répare ce qu'il peut et produit un rapport sans données personnelles.
-- L'interface est disponible en français et en anglais.
-- Expérimental : les fenêtres dont la barre de titre est dessinée par Windows (Explorateur de
-  fichiers, anciennes boîtes de dialogue) peuvent recevoir la barre de titre du bureau, avec
-  ses coins arrondis et son ombre. Office, Edge et les applications qui dessinent leur propre
-  barre de titre gardent la leur. L'option s'active dans l'application Vasistas, dans
-  Préférences, section Expérimental.
-- Expérimental : un pilote d'affichage modifié donne à Windows le rythme d'un vrai écran à
-  60 Hz. Ce pilote n'est pas fourni compilé : vous le compilez et l'installez séparément. Il
-  demande le mode de signature de test de Windows et se désactive sur batterie. Voir
-  [docs/pilote-maison.md](docs/pilote-maison.md).
+1. Téléchargez `vasistas-<version>.tar.gz` depuis la [dernière version publiée](../../releases),
+   puis :
+   ```
+   tar xf vasistas-*.tar.gz
+   cd vasistas-*
+   ./install.sh
+   ```
+   Le script installe Vasistas dans votre dossier personnel, sans droits d'administrateur. S'il
+   manque des paquets, il affiche la commande `sudo apt install …` à lancer.
+2. Ouvrez « Vasistas » depuis le menu Applications.
+3. Suivez l'assistant. Vous choisissez la langue, l'image de Windows, les applications ;
+   l'installation se fait ensuite d'un seul clic : Windows, sa configuration, vos applications,
+   le pilote graphique, les mises à jour.
 
-## Fonctionnement
+**Il vous faut :** un processeur avec la virtualisation matérielle activée (KVM), 16 Go de
+mémoire conseillés, environ 100 Go de disque libre, elementary OS 8 ou 9 (ou un système basé sur
+Debian ou Ubuntu 24.04 et suivants avec GTK 4 et Granite 7 ; seul le bureau Pantheon est testé).
 
-Windows tourne dans une machine virtuelle QEMU/KVM sur votre ordinateur. Au lieu de diffuser un
-bureau à distance, Vasistas lit l'écran de Windows directement dans la mémoire partagée de QEMU
-(affichage D-Bus) : rien n'est encodé ni envoyé sur un réseau. Un petit agent dans Windows
-indique où se trouve chaque fenêtre et reçoit la souris, le clavier et le presse-papiers par un
-canal virtio. Quand une fenêtre est recouverte par une autre dans Windows, l'agent la capture
-(Windows.Graphics.Capture) et envoie ses zones modifiées, compressées, par ce même canal.
-Côté Linux, chaque fenêtre Windows devient une fenêtre GTK 4 qui affiche sa partie de l'écran.
-Cette fenêtre porte l'identité de l'application, pour que le bureau puisse la regrouper et la
-décorer correctement. Les dossiers sont partagés par virtio-fs.
+## Windows : ce qu'il vous faut
 
-Les détails techniques sont dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) et le protocole
-entre l'hôte et l'agent dans [PROTOCOL.md](PROTOCOL.md).
+**Vous utilisez l'image de Windows que vous voulez.** Vasistas ne fournit aucun Windows : vous
+téléchargez l'ISO sur le site de Microsoft (ou vous prenez la version d'évaluation de 90 jours,
+que l'assistant sait télécharger) et vous la désignez dans l'assistant. Vous pouvez aussi
+préparer un Windows déjà installé : voir [docs/configure-windows.md](docs/configure-windows.md).
+
+**L'édition Professionnelle (Pro) est recommandée au minimum.** C'est un conseil technique :
+l'édition Famille peut tourner dans une machine virtuelle, mais elle n'a pas toutes les
+fonctions de gestion sur lesquelles Vasistas s'appuie (Bureau à distance, réglages de groupe).
+
+**Les licences sont les vôtres**, et il en faut une par installation de Windows : une clé déjà
+utilisée par un Windows installé sur le même ordinateur ne couvre pas en plus la machine
+virtuelle. Il en va de même pour Office, Microsoft 365 et les autres logiciels payants : leur
+licence doit couvrir la machine virtuelle.
+
+**La version d'évaluation de 90 jours** (Windows 11 Entreprise, compte Microsoft exigé) sert à
+essayer Vasistas. Microsoft en interdit l'usage en production et après la période d'essai.
+
+Pour installer sans saisir de clé tout de suite, l'assistant utilise une clé d'installation
+générique publiée par Microsoft : elle choisit seulement l'édition et n'active pas Windows.
+Activez-le ensuite avec votre propre clé (Paramètres, Système, Activation).
+
+**L'installation contourne les contrôles de Windows 11** sur le TPM, Secure Boot et la mémoire
+vive (réglage `LabConfig` de Microsoft), puisque la machine virtuelle n'en a pas. Ce n'est pas
+un contournement de l'activation, qui reste à faire avec votre licence.
+
+**L'allègement de Windows est facultatif.** Il retire des applications préinstallées et réduit
+la télémétrie au minimum que permet votre édition (la coupure totale n'existe que sur
+Entreprise et Éducation). Il s'appuie sur la liste de Win11Debloat, dont l'auteur rappelle
+qu'on l'utilise à ses risques ; un point de restauration est créé avant.
 
 ## Ce que Vasistas n'est pas
 
-Vasistas est conçu pour les applications de bureau et n'est pas adapté aux jeux. Sans carte
-graphique attribuée à la machine virtuelle, Windows fait son rendu avec le processeur. Les
-applications de bureautique et de gestion restent réactives ; la 3D, la vidéo exigeante et les
-jeux ne le sont pas. Par ailleurs, les systèmes anti-triche refusent en général les machines
-virtuelles. Attribuer une carte
-graphique dédiée à Windows est possible mais expérimental.
+- **Pas fait pour les jeux** ni pour la 3D exigeante ; les systèmes anti-triche refusent en
+  général les machines virtuelles.
+- **Pas de webcam** ni de périphériques USB directs pour l'instant.
+- **Netteté sur plusieurs écrans.** Windows n'a qu'une seule échelle d'affichage. Si vos écrans
+  en ont deux différentes, les fenêtres de l'un peuvent paraître floues. Préférez les échelles
+  entières (100 %, 200 %) et gardez ensemble les applications utilisées ensemble.
 
-La webcam et le passage direct de périphériques USB ne sont pas encore pris en charge.
+## Carte graphique accélérée
 
-### Netteté sur plusieurs écrans
+Windows croit disposer d'une vraie carte graphique : DWM, Direct3D, Vulkan et OpenGL
+s'exécutent sur la carte de votre ordinateur. **Ce travail n'est pas celui de Vasistas.** Il
+est entièrement dû à **[acceleration3](https://github.com/acceleration3)**, auteur d'
+[accel-virt](https://github.com/acceleration3/accel-virt) (pilote WDDM `avgpu`, pilotes
+Direct3D 9 à 12, Vulkan, OpenGL et OpenCL pour Windows, dispositif QEMU et moteur de rendu
+`av-renderer` pour Linux) et de [LSW](https://github.com/acceleration3/linux-subsystem-windows).
+Sans lui, Vasistas serait resté à 28 images par seconde. Vasistas le récupère depuis le dépôt
+de son auteur, le compile sur votre ordinateur, et l'assistant l'installe dans Windows en
+citant son auteur à cette étape. Vasistas n'en distribue ni les sources ni les binaires.
 
-Windows n'a qu'un écran, donc une seule échelle. Si vos écrans ont des échelles différentes,
-par exemple un écran externe à 100 % et l'écran d'un portable à 200 %, seules les fenêtres de
-l'un d'eux peuvent être dessinées par Windows à la bonne taille. Les fenêtres de l'autre écran
-sont redimensionnées par le bureau et peuvent paraître floues. Ce flou vient de la façon dont
-l'image est rendue, et non de l'application. Ramener les fenêtres sur le premier écran règle
-le problème.
+> **Risques du mode « signature de test ».** Le pilote exige ce mode de Windows, une option
+> prévue par Microsoft pour les pilotes en développement. Tant qu'il est actif, un pilote
+> signé par n'importe qui peut se charger dans le noyau de Windows ; Windows affiche un
+> filigrane « Test Mode », Secure Boot peut devoir être désactivé, et certaines protections
+> (anti-triche, DRM) refusent de fonctionner. Pour revenir en arrière : « Retirer le pilote »
+> dans l'application, `bcdedit /set testsigning off` dans Windows, ou le point de
+> restauration créé avant l'installation.
 
-Pour limiter cet effet :
+> **Licence d'accel-virt.** Son dépôt n'a pas encore de licence publiée : j'ai demandé à son
+> auteur de bien vouloir en choisir une
+> ([issue n° 1](https://github.com/acceleration3/accel-virt/issues/1)) et j'attends sa réponse.
+> D'ici là, Vasistas ne l'embarque ni ne le redistribue : c'est vous qui le compilez, sur votre
+> ordinateur, depuis son dépôt. Si l'auteur préfère qu'il n'en soit pas ainsi, Vasistas le
+> retirera.
 
-- préférez les échelles entières (100 %, 200 %) : Windows a alors un palier exact, et une
-  fenêtre sur l'autre écran est réduite exactement de moitié, ce qui reste lisible ;
-- les échelles fractionnaires comme 167 % fonctionnent, mais Windows prend son palier le plus
-  proche (175 %) et les fenêtres déplacées sur un autre écran perdent plus de détails ;
-- gardez si possible les applications Windows utilisées ensemble sur le même écran.
+Détails et mesures : [docs/acceleration-graphique.md](docs/acceleration-graphique.md).
 
-## Configuration requise
+## Vie privée
 
-- elementary OS 8 ou 9, ou un autre système basé sur Debian ou Ubuntu (Ubuntu 24.04 ou
-  ultérieur) avec GTK 4 et Granite 7 ; seul le bureau Pantheon est testé pour l'instant
-- un processeur avec la virtualisation matérielle activée (KVM), 16 Go de mémoire conseillés
-  et environ 100 Go d'espace disque libre
-- votre propre licence Windows, ou une version d'évaluation de 90 jours que l'assistant peut
-  télécharger ; les licences ou abonnements d'Office et des autres logiciels payants
+Vasistas ne collecte rien et n'envoie rien à personne. Il contacte seulement GitHub (pour
+chercher les mises à jour, ce qui lui montre votre adresse IP), les sites de Microsoft (image de
+Windows, applications) et Fedora (pilotes virtio-win). Le rapport de diagnostic est anonymisé,
+et c'est vous qui décidez de le partager.
 
-Pour installer une version sous licence sans saisir de clé tout de suite, l'assistant utilise
-une clé générique publiée par Microsoft. Cette clé choisit seulement l'édition pendant
-l'installation : elle n'active pas Windows et ne remplace pas une licence. Windows reste à
-activer avec votre propre clé (Paramètres, Système, Activation).
+## Fonctionnement
 
-## Installation
+Windows tourne dans une machine virtuelle QEMU/KVM. Vasistas lit l'écran de Windows directement
+dans la mémoire partagée de QEMU : rien n'est encodé ni envoyé sur un réseau. Un petit agent
+dans Windows indique où se trouve chaque fenêtre et transmet souris, clavier et presse-papiers
+par un canal virtio. Côté Linux, chaque fenêtre Windows devient une fenêtre GTK 4 qui porte
+l'identité de son application, pour que le bureau la regroupe et la décore correctement. Les
+dossiers sont partagés par virtio-fs.
 
-Téléchargez `vasistas-<version>.tar.gz` depuis la dernière version publiée, puis lancez :
-
-```
-tar xf vasistas-0.10.0.tar.gz
-cd vasistas-0.10.0
-./install.sh
-```
-
-Le script installe Vasistas dans votre dossier personnel, sans droits d'administrateur. S'il
-manque des paquets du système, le script affiche la commande `sudo apt install …` à lancer.
-Ouvrez ensuite « Vasistas » depuis le menu Applications et suivez l'assistant. L'application
-Vasistas propose les mises à jour.
-
-Pour préparer une installation de Windows faite par un autre moyen, voir
-[docs/configure-windows.md](docs/configure-windows.md).
+Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) et [PROTOCOL.md](PROTOCOL.md).
 
 ## Ligne de commande
-
-La commande `vasistas` (dans `~/.local/bin`) fonctionne aussi depuis un terminal :
 
 ```
 vasistas vm start|stop|status          # la machine virtuelle
 vasistas launch-app winword            # une application connue
 vasistas open ~/Documents/rapport.docx # un fichier, dans son application Windows
 vasistas files list|set csv excel      # types de fichiers ouverts dans Windows
-vasistas folders list|link|unlink      # dossiers de Windows qui pointent vers des dossiers Linux
+vasistas folders list|link|unlink      # dossiers de Windows reliés à des dossiers Linux
 vasistas exec 'Get-Process'            # un script PowerShell dans Windows
 vasistas companion                     # l'application Vasistas
 ```
 
 ## Avec Lucarne
 
-[Lucarne](https://github.com/Melvin-Cwz/lucarne) est un projet distinct qui ouvre les
-applications web de Microsoft 365 dans des fenêtres du bureau. Les deux projets ne partagent
-pas de code et fonctionnent chacun seul. Quand les deux sont installés, ils communiquent
-uniquement par leurs commandes, cherchées dans `PATH` au besoin :
-
-- Lucarne ouvre un document SharePoint ou OneDrive cliqué dans Office, dans la machine
-  virtuelle, en lançant `vasistas launch "ms-word:ofe|u|<adresse du fichier>"`,
-  `vasistas launch-app <id> [URL]` ou `vasistas open <fichier>`.
-- L'application Vasistas affiche une section « Navigateur » dans ses Préférences quand la
-  commande `lucarne` existe.
-  L'application lit `lucarne status` et `lucarne config get`, et enregistre le choix avec
-  `lucarne config set <appli> target vm|web`. La variable `VASISTAS_LUCARNE` remplace la
-  commande.
-- Les lanceurs d'Office dans la machine virtuelle utilisent les icônes `lucarne-<appli>` de
-  Lucarne quand le thème d'icônes les contient, sinon les icônes reprises de Windows.
+[Lucarne](https://github.com/Melvin-Cwz/lucarne) ouvre les applications web de Microsoft 365
+dans des fenêtres du bureau. Les deux projets sont indépendants et ne partagent aucun code ;
+installés ensemble, ils communiquent par leurs commandes (`vasistas launch`, `lucarne status`,
+`lucarne config`). L'application Vasistas affiche alors une section « Navigateur » dans ses
+Préférences.
 
 ## Développement
 
 L'hôte est écrit en Python avec GTK 4 et Granite (`host/vasistas`), l'agent Windows en C# pour
-.NET Framework 4.8 (`guest/Vasistas.Agent`, compilé avec `dotnet build -c Release`).
-`./check.sh` lance les tests et compile l'agent ; `tools/make-release.sh` prépare l'archive
-d'une version publiée.
+.NET Framework 4.8 (`guest/Vasistas.Agent`). `./check.sh` lance les tests et compile l'agent ;
+`tools/make-release.sh` prépare l'archive d'une version.
+
+## Crédits
+
+Vasistas est l'œuvre de Melvin Couwez. Il n'existerait pas sans le travail d'autres personnes :
+
+- **[acceleration3](https://github.com/acceleration3)**, avant tout autre : [accel-virt](https://github.com/acceleration3/accel-virt)
+  et [LSW](https://github.com/acceleration3/linux-subsystem-windows), le pilote graphique de
+  Windows, ses pilotes Direct3D, Vulkan, OpenGL et OpenCL, et le moteur de rendu qui donnent à
+  Vasistas sa fluidité. Tout le mérite de l'accélération graphique lui revient.
+- **[QEMU](https://www.qemu.org)** et **KVM** : la machine virtuelle.
+- **[virtio-win](https://github.com/virtio-win/kvm-guest-drivers-windows)** (Red Hat et
+  contributeurs, projet Fedora) : les pilotes de Windows pour la machine virtuelle, dont
+  viogpudo (Vadim Rozenfeld, Red Hat) que Vasistas modifie.
+- **Philip Rebohle** ([DXVK](https://github.com/doitsujin/dxvk)) et **Hans-Kristian Arntzen**
+  ([vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton), dérivé de vkd3d, projet
+  Wine) : Direct3D sur Vulkan, utilisés par accel-virt.
+- **[Chris Lalancette](https://github.com/clalancette/pycdlib)** : pycdlib, qui construit le CD
+  d'installation.
+- **[Meta](https://github.com/facebook/zstd)** : zstd (licence BSD), la compression des images
+  de fenêtres.
+- **Roman Roemer et l'équipe [FlaUI](https://github.com/FlaUI/UIAutomation-Interop)** : les
+  types d'interopérabilité UI Automation.
+- **[Raphire](https://github.com/Raphire/Win11Debloat)** : la liste d'applications de
+  Win11Debloat, qui guide l'allègement de Windows.
+- **[elementary OS](https://elementary.io)**, **GTK** et **Granite** : le bureau et les
+  bibliothèques de l'interface ; **PipeWire** pour le son, **CUPS** pour l'impression.
+- **[Inter](https://rsms.me/inter/)** (Rasmus Andersson, licence OFL) : la police de l'en-tête.
+
+Les licences sont reproduites dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Licence
 
-Vasistas est publié sous licence MIT (voir [LICENSE](LICENSE)).
-
-Vasistas contient [pycdlib](https://github.com/clalancette/pycdlib) (LGPL 2.1, dans `host/vendor`),
-qui sert à construire le CD d'installation. L'agent Windows embarque les types d'interopérabilité
-UI Automation d'[Interop.UIAutomationClient](https://github.com/FlaUI/UIAutomation-Interop)
-(MIT) et la version Windows officielle de [zstd](https://github.com/facebook/zstd) 1.5.7
-(`libzstd.dll`, BSD). Les correctifs du dossier `patches/` modifient QEMU et gardent sa licence
-(GPL 2.0 ou ultérieure) ; `guest/viogpudo/vsync.patch` modifie le pilote d'affichage de
-virtio-win et garde sa licence (BSD 3 clauses). Textes des licences et détails :
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Vasistas est publié sous licence MIT (voir [LICENSE](LICENSE)), **sauf le dossier `patches/`**,
+dont les correctifs de QEMU gardent la licence GPL 2.0 de QEMU. Les autres composants tiers
+gardent aussi leur propre licence : pycdlib (LGPL 2.1, dans `host/vendor`, non modifié), zstd
+(BSD), Interop.UIAutomationClient (MIT) et le correctif de viogpudo (BSD 3 clauses, copyright
+Red Hat).
 
 Windows, Office, Power BI et les autres logiciels cités appartiennent à leurs éditeurs.
-Vasistas ne contient aucun logiciel ni aucune licence de Microsoft : les images et
-installateurs de Microsoft se téléchargent depuis ses sites officiels, et leur utilisation
-reste soumise à leurs propres conditions de licence. Vasistas est un projet indépendant, sans
-lien avec Microsoft ni approbation de sa part.
+Vasistas ne contient aucun logiciel ni licence de Microsoft (seule la capture d'écran montre
+Word, avec un document fictif) : leurs images et
+installateurs se téléchargent sur leurs sites officiels, et leur usage reste soumis à leurs
+conditions. Vasistas est un projet indépendant, sans lien avec Microsoft ni approbation de sa
+part.
+
+Excel, Microsoft, Outlook, Power BI, Windows et Word sont des marques du groupe Microsoft.
+QEMU est une marque de Fabrice Bellard. Les autres noms cités appartiennent à leurs
+propriétaires.

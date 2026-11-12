@@ -228,6 +228,9 @@ def memory_cap(profile):
     from . import vm
     if profile == "performance" or profile not in vm.RESOURCES:
         return None
+    # mémoire réglée à la main (page Paramètres) : c'est elle la limite, sauf sur batterie
+    if profile != "battery" and vm.custom_resources():
+        return None
     return memory_bytes(vm.RESOURCES[profile][1])
 
 
@@ -237,6 +240,25 @@ def efficient_cpus(perfs, n):
     if not perfs or n <= 0:
         return set()
     return set(sorted(perfs, key=lambda c: (perfs[c], c))[:n])
+
+
+MAX_PIN_CPUS = 8  # au-delà, les threads sobres manquent : mieux vaut laisser l'ordonnanceur
+
+
+def pin_width(n_cpus, vcpus):
+    """Nombre de processeurs logiques où épingler QEMU sur batterie : au moins n_cpus, plus si la
+    VM a démarré avec davantage de vCPU (profil Performance puis débranchement), sans dépasser
+    MAX_PIN_CPUS."""
+    return max(n_cpus, min(vcpus or 0, MAX_PIN_CPUS))
+
+
+def vm_vcpus(pid):
+    """Nombre de vCPU de la VM d'après /proc/<pid>/cmdline, None si illisible."""
+    try:
+        argv = Path(f"/proc/{pid}/cmdline").read_bytes().decode().split("\0")
+        return parse_qemu_cmdline([a for a in argv if a])[0]
+    except (OSError, ValueError):
+        return None
 
 
 def battery_from_sysfs(supplies):
@@ -437,6 +459,8 @@ class PowerManager:
                 log.info("profil de puissance : %s (%s)", profile, why)
             self.profile, self.why, self.applied_pid = profile, why, pid
             n_cpus = vm.RESOURCES.get("battery", (4, ""))[0]
+            # VM démarrée sur secteur avec plus de vCPU : ne pas les entasser sur 4 threads
+            n_cpus = pin_width(n_cpus, vm_vcpus(pid))
             cpus = efficient_cpus(self.cpu_info, n_cpus) if profile == "battery" else set()
             set_affinity(pid, cpus)
         ready = bool(self.app.guest_ready)

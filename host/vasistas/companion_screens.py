@@ -62,6 +62,17 @@ class ScreensPage(Section):
         self.apps_list = self.add(card())
         self.add(dim(_("Si l'écran choisi n'est pas branché, la fenêtre s'ouvre sur l'écran actif.")))
 
+        self.header(_("Mode d'affichage"))
+        modes = [("integrated", _("Fenêtres intégrées")), ("single", _("Fenêtre indépendante"))]
+        mode = Gtk.DropDown.new_from_strings([label for _key, label in modes])
+        mode.set_valign(Gtk.Align.CENTER)
+        mode.set_selected(1 if vm.load_config().get("display_mode") == "single" else 0)
+        mode.connect("notify::selected", lambda d, _p: self.set_mode(modes[d.get_selected()][0]))
+        self.add(row(_("Windows s'affiche en"),
+                     _("Fenêtres intégrées : chaque application Windows a sa propre fenêtre, comme une application "
+                       "Linux. Fenêtre indépendante : tout Windows tient dans une seule fenêtre, avec son bureau et "
+                       "sa barre des tâches, à la résolution de cette fenêtre."), mode))
+
         self.header(_("Taille des fenêtres"))
         s = placement.settings()
         clamp = Gtk.Switch(active=s["clamp"])
@@ -85,6 +96,10 @@ class ScreensPage(Section):
         monitors = Gdk.Display.get_default().get_monitors()
         monitors.connect("items-changed", lambda *_: self.fill())
         self.fill()
+
+    def set_mode(self, mode):
+        set_config("display_mode", mode)
+        ask_host({"desktop": mode == "single"})
 
     def save(self, **values):
         placement.save_settings(values)

@@ -75,3 +75,19 @@ def test_double_clic_agrandit_sans_second_clic_windows():
         _feed(view, Gdk.EventType.BUTTON_RELEASE, 100, 10)
     assert owner.maximized == [True]
     assert len([m for m in sent if m["t"] == "mouse.button"]) == 2
+
+
+def test_barre_de_titre_dessinee_par_power_bi():
+    # Power BI répond HTCLIENT sur sa barre de titre : la bande du haut se déplace côté Linux
+    view, sent, top, owner = _view()
+    owner.app_name, owner.dpi = "pbidesktop", 160
+    view.hit = 1
+    _feed(view, Gdk.EventType.BUTTON_PRESS, 100, 10)     # invité y=20 < 60
+    _feed(view, Gdk.EventType.MOTION_NOTIFY, 130, 12)
+    assert top.moves == [(1, 100, 10)]
+    view, sent, top, owner = _view()
+    owner.app_name, owner.dpi = "pbidesktop", 160
+    view.hit = 1
+    _feed(view, Gdk.EventType.BUTTON_PRESS, 100, 40)     # invité y=80 : contenu, pas de déplacement
+    _feed(view, Gdk.EventType.MOTION_NOTIFY, 130, 42)
+    assert not top.moves

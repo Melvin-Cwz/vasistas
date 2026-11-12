@@ -10,5 +10,7 @@
   "fichiers manquants :": "missing files:",
   "carte graphique dédiée non prêtée : {e}": "dedicated graphics card not lent: {e}",
   "installation interrompue ({reason}) : disque supprimé, relancez l'installation": "installation interrupted ({reason}): disk removed, restart the installation",
-  "QEMU arrêté": "QEMU stopped"
+  "QEMU arrêté": "QEMU stopped",
+  "virtiofsd ({tag}) : isolation « namespace » impossible, repli sur « none »": "virtiofsd ({tag}): \"namespace\" sandbox unavailable, falling back to \"none\"",
+  "ISO de partage non reconstruite : {error}": "Share ISO not rebuilt: {error}"
 }

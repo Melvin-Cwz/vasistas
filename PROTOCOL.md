@@ -74,6 +74,8 @@ Champs facultatifs de `hello` et `display`, gardés jusqu'au prochain message qu
 - `mouse.move {id, x, y}`
 - `mouse.button {id, x, y, button, down}` : 1 gauche, 2 milieu, 3 droit, 8/9 X1/X2
 - `mouse.wheel {id, x, y, dx, dy}` : en unités WHEEL_DELTA (120 par cran)
+- `screen.move {x, y}`, `screen.button {x, y, button, down}`, `screen.wheel {x, y, dx, dy}` : les mêmes en
+  coordonnées de l'écran, sans fenêtre (fenêtre « Bureau de Windows » de l'hôte)
 - `window.activate {id}` : restaurer si réduite et passer au premier plan
 - `window.deactivate {id}` : l'hôte a perdu le focus, fermer menus et popups
 - `window.close {id}` : WM_CLOSE

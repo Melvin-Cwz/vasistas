@@ -1,7 +1,8 @@
 """Application compagnon : piloter la machine virtuelle Windows et régler Vasistas.
 
-Fenêtre elementary (GTK 4 + Granite) : les pages principales en boutons groupés dans la barre
-de titre, les autres (Avancé, Paramètres…) dans son menu. Elle parle à
+Fenêtre elementary (GTK 4 + Granite) : cinq destinations dans une barre latérale (Accueil,
+Applications, Fichiers, Paramètres, Aide et dépannage), avec le logo, la version et « Quoi de
+neuf » en bas ; les pages de réglages sont rangées sous Paramètres. Elle parle à
 l'hôte `vasistas run` par le socket de contrôle et lit ou écrit ~/.local/share/vasistas
 (config.json, apps.json, installed.json).
 """
@@ -22,7 +23,7 @@ from .i18n import N_, _  # noqa: E402
 from .version import VERSION  # noqa: E402
 from .winctl import APP_ID  # noqa: E402
 
-COMPANION_ID = f"{APP_ID}.Companion"
+COMPANION_ID = f"{APP_ID}.Companion" + (".Beta" if vm.PROFILE == "beta" else "")
 POLL_S = 2
 # Marges et tailles des pages de réglages, reprises de l'application Paramètres d'elementary
 # (Granite ne les fournit pas : chaque application les pose elle-même ; nos pages sont des
@@ -57,43 +58,65 @@ scale.modes slider { min-width: 22px; min-height: 22px; }
 
 
 class Window(Gtk.ApplicationWindow):
-    # cinq onglets au plus : au-delà, la barre de titre ne tient plus en français et la fenêtre ne
-    # rétrécit plus ; Restauration (rare) passe dans le menu
-    PRIMARY = [("home", N_("Accueil")), ("apps", N_("Applications")), ("files", N_("Fichiers")),
-               ("display", N_("Affichage")), ("windows", "Windows")]
-    SECONDARY = [("restoration", N_("Restauration")), ("settings", N_("Préférences")),
-                 ("help", N_("Aide et diagnostic")), ("about", N_("À propos"))]
+    # destinations de la barre latérale : (page, nom, icône)
+    PRIMARY = [("home", N_("Accueil"), "go-home-symbolic"), ("apps", N_("Applications"), "view-app-grid-symbolic"),
+               ("files", N_("Fichiers"), "folder-symbolic"), ("parameters", N_("Paramètres"), "preferences-system-symbolic"),
+               ("help", N_("Aide et dépannage"), "help-contents-symbolic")]
+    # pages de réglages : rangées sous Paramètres, qui reste allumé quand elles sont affichées
+    PARENTS = {"display": "parameters", "windows": "parameters", "restoration": "parameters",
+               "settings": "parameters", "about": "parameters"}
 
     def __init__(self, app):
-        super().__init__(application=app, title="Vasistas", default_width=960, default_height=680,
+        super().__init__(application=app, title="Vasistas Beta" if vm.PROFILE == "beta" else "Vasistas", default_width=960,
+                         default_height=680,
                          icon_name=APP_ID)
         self.state = {}
 
-        header = Gtk.HeaderBar()
-        menu = Gio.Menu()
-        more = Gio.Menu()
-        for name, label in self.SECONDARY:
-            more.append(_(label), f"win.page::{name}")
-        menu.append_section(None, more)
-        header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu,
-                                       tooltip_text=_("Menu"), primary=True))
+        self.set_titlebar(Gtk.HeaderBar())
         go = Gio.SimpleAction.new("page", GLib.VariantType.new("s"))
         go.connect("activate", lambda _a, v: self.show_page(v.get_string()))
         self.add_action(go)
-        # pages principales : boutons groupés au centre de la barre de titre
+        from .companion_dashboard import DashboardPage, load_css
+        from .companion_parameters import ParametersPage
+        load_css()
+        # destinations : boutons de la barre latérale
         self.tabs = {}
-        tabs = Gtk.Box()
-        tabs.add_css_class("linked")
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, width_request=228)
+        sidebar.add_css_class("vasistas-sidebar")
         first = None
-        for name, label in self.PRIMARY:
-            b = Gtk.ToggleButton(label=_(label), group=first)
+        for name, label, icon in self.PRIMARY:
+            content = Gtk.Box(spacing=10)
+            content.append(Gtk.Image(icon_name=icon))
+            content.append(Gtk.Label(label=_(label), xalign=0))
+            b = Gtk.ToggleButton(child=content, group=first)
             first = first or b
-            b.connect("toggled", lambda btn, n=name: btn.get_active() and self.stack.get_visible_child_name() != n
-                      and self.show_page(n))
-            tabs.append(b)
+            b.add_css_class(Granite.STYLE_CLASS_FLAT)
+            b.add_css_class("nav")
+            # « clicked » et non « toggled » : depuis une page rangée sous Paramètres, son bouton est
+            # déjà allumé et ne bascule pas ; le clic doit quand même y ramener
+            b.connect("clicked", lambda _btn, n=name: self.show_page(n))
+            sidebar.append(b)
             self.tabs[name] = b
-        header.set_title_widget(tabs)
-        self.set_titlebar(header)
+        # en bas : logo, version, « Quoi de neuf »
+        about = Gtk.Box(spacing=10, valign=Gtk.Align.END, vexpand=True, margin_top=12, margin_start=4)
+        about.append(Gtk.Image(icon_name=APP_ID, pixel_size=36))
+        texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        name_line = Gtk.Box(spacing=6)
+        name_label = Gtk.Label(label="Vasistas", xalign=0)
+        name_label.add_css_class(Granite.STYLE_CLASS_H4_LABEL)
+        name_line.append(name_label)
+        version = Gtk.Label(label=VERSION, xalign=0)
+        version.add_css_class(Granite.STYLE_CLASS_DIM_LABEL)
+        version.add_css_class(Granite.STYLE_CLASS_SMALL_LABEL)
+        name_line.append(version)
+        texts.append(name_line)
+        news = Gtk.Button(label=_("Quoi de neuf"), halign=Gtk.Align.START)
+        news.add_css_class("link")
+        news.add_css_class(Granite.STYLE_CLASS_SMALL_LABEL)
+        news.connect("clicked", lambda *_a: self.get_application().show_whatsnew())
+        texts.append(news)
+        about.append(texts)
+        sidebar.append(about)
 
         from .companion_advanced import HelpPage
         from .companion_apps import AppsPage
@@ -101,14 +124,14 @@ class Window(Gtk.ApplicationWindow):
         from .companion_display import PerformancePage
         from .companion_files import FilesPage
         from .companion_folders import FoldersPage
-        from .companion_home import HomePage
         from .companion_install import InstallPage
         from .companion_restore import RestorationPage
         from .companion_settings import AboutPage, SettingsPage
         from .companion_windows import WindowsPage
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, hexpand=True, vexpand=True)
         self.pages = [
-            ("home", HomePage(self)),
+            ("home", DashboardPage(self)),
+            ("parameters", ParametersPage(self)),
             ("apps", ColumnsPage("applications-other", _("Applications"),
                                  _("Les applications Windows présentes dans le menu Applications et les applications "
                                    "disponibles à l'installation."),
@@ -134,7 +157,7 @@ class Window(Gtk.ApplicationWindow):
                            st.get_visible_child().update(self.state))
         # page d'ouverture (indicateur, aide, essais) : VASISTAS_PAGE=<nom>
         start = os.environ.get("VASISTAS_PAGE")
-        if start and self.stack.get_child_by_name(start):
+        if start:  # show_page connaît aussi les anciens noms (MOVED) et ignore les inconnus
             # après la construction des onglets, qui allument le premier
             self.connect("map", lambda *_: GLib.timeout_add(100, lambda: self.show_page(start) and False))
 
@@ -163,9 +186,13 @@ class Window(Gtk.ApplicationWindow):
         self.toast = Granite.Toast(title="")
         self.toast_action = None
         self.toast.connect("default-action", lambda *_a: self.toast_action and self.toast_action())
-        overlay = Gtk.Overlay(child=right)
+        overlay = Gtk.Overlay(child=right, hexpand=True)
         overlay.add_overlay(self.toast)
-        self.set_child(overlay)
+        panes = Gtk.Box()
+        panes.append(sidebar)
+        panes.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        panes.append(overlay)
+        self.set_child(panes)
 
         self.poll()
         self.poll_source = GLib.timeout_add_seconds(POLL_S, self.poll)
@@ -232,12 +259,10 @@ class Window(Gtk.ApplicationWindow):
         if page is None:
             return None
         self.stack.set_visible_child(page)
+        lit = self.PARENTS.get(name, name)
         for n, btn in self.tabs.items():
-            if btn.get_active() != (n == name):
-                btn.set_active(n == name)
-        if name not in self.tabs:  # page du menu : aucun onglet allumé
-            for btn in self.tabs.values():
-                btn.set_active(False)
+            if btn.get_active() != (n == lit):
+                btn.set_active(n == lit)
         return page.open_sub(sub) if sub and hasattr(page, "open_sub") else page
 
     def page(self, name):
@@ -308,7 +333,7 @@ class App(Gtk.Application):
             if accels:
                 self.set_accels_for_action(f"app.{name}", accels)
         # Ctrl+1…5 : onglets, Ctrl+, : Préférences (habitude des applications du bureau)
-        for i, (name, _label) in enumerate(Window.PRIMARY, 1):
+        for i, (name, _label, _icon) in enumerate(Window.PRIMARY, 1):
             self.set_accels_for_action(f"win.page::{name}", [f"<Control>{i}"])
         self.set_accels_for_action("win.page::settings", ["<Control>comma"])
 

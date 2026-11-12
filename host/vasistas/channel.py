@@ -20,6 +20,11 @@ log = logging.getLogger(__name__)
 # souris sont jetés, jamais les touches ni les clics (un relâchement perdu bloquerait la touche).
 SEND_QUEUE_MAX = 2000
 DROPPABLE = {"mouse.move", "mouse.wheel", "hover"}
+# L'invité n'est pas de confiance : il ne fait pas réserver à l'hôte plus que ces bornes
+# (1 Go de pixels, soit une quarantaine de fenêtres plein écran en 3440x1800).
+MAX_SIDE = 16384
+MAX_SURFACES = 512
+MAX_PIXELS = 256 * 1024 * 1024
 
 
 class Surface:
@@ -177,8 +182,17 @@ class Channel:
                 surf = self.surfaces.get(wid)
                 if surf is not None:
                     surf.blit(x, y, w, h, data)
-            elif ftype == protocol.T_JSON:
-                self._handle_json(payload)
+            elif ftype == protocol.T_JSON and isinstance(payload, dict):
+                try:
+                    self._handle_json(payload)
+                except (KeyError, TypeError, ValueError) as e:
+                    log.debug("message mal formé ignoré (%s) : %r", payload.get("t"), e)
+
+    def _fits(self, wid, w, h):
+        """Vrai si la fenêtre `wid` peut avoir un tampon de w x h (bornes MAX_*)."""
+        if w > MAX_SIDE or h > MAX_SIDE or (wid not in self.surfaces and len(self.surfaces) >= MAX_SURFACES):
+            return False
+        return w * h + sum(s.w * s.h for k, s in self.surfaces.items() if k != wid) <= MAX_PIXELS
 
     def _handle_json(self, msg):
         t = msg.get("t")
@@ -186,8 +200,11 @@ class Channel:
             self.guest_ready = True
         elif t in ("window.new", "window.update") and "rect" in msg:
             _, _, w, h = msg["rect"]
-            w, h = max(1, w), max(1, h)
+            w, h = max(1, int(w)), max(1, int(h))
             with self.surf_lock:
+                if not self._fits(msg["id"], w, h):
+                    log.warning("fenêtre %s de %sx%s refusée (bornes de mémoire)", msg["id"], w, h)
+                    return
                 surf = self.surfaces.get(msg["id"])
                 if surf is None:
                     self.surfaces[msg["id"]] = Surface(w, h)

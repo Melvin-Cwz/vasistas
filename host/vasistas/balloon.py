@@ -18,7 +18,7 @@ import time
 
 from gi.repository import GLib
 
-from . import control, vm
+from . import control, power, vm
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +41,15 @@ winmgmt /resyncperf | Out-Null
 Restart-Service Winmgmt -Force
 Restart-Service BalloonService -Force
 """
+# 2026-10-19 : BalloonService a entraîné WMI (Winmgmt + WmiPrvSE) dans une boucle à un cœur
+# plein, cause inconnue, Power BI ramait ; redémarrer le service suffit. Mesure sur 5 s.
+WMI_WATCH_S = 300
+WMI_WATCH_PS = r"""
+function T { $w=[int]((tasklist /svc /fi "services eq Winmgmt" /fo csv /nh) -split ',')[1].Trim('"')
+  $t=0; @(Get-Process -Id $w -EA SilentlyContinue)+@(Get-Process WmiPrvSE -EA SilentlyContinue) | % { $t+=$_.CPU }; $t }
+$a=T; Start-Sleep 5; $d=(T)-$a
+if ($d -gt 2.5) { Restart-Service BalloonService -Force; "restart $d" } else { "ok $d" }
+"""
 
 
 def enabled():
@@ -61,6 +70,7 @@ class BalloonManager:
         self.max = None
         self.boost_until = 0.0
         self.repaired = 0.0
+        self.wmi_checked = time.monotonic()
         self.lock = threading.Lock()
         GLib.timeout_add_seconds(INTERVAL_S, self._tick)
 
@@ -90,7 +100,21 @@ class BalloonManager:
         if (self.app.guest_ready and not (self.app.sleep and self.app.sleep.paused)
                 and not self.lock.locked() and enabled() and vm.pid()):
             threading.Thread(target=self._adjust, daemon=True).start()
+            # pas de sonde sur batterie : elle réveille PowerShell et WMI pour rien
+            if time.monotonic() - self.wmi_checked > WMI_WATCH_S and not power.on_battery():
+                self.wmi_checked = time.monotonic()
+                threading.Thread(target=self._watch_wmi, daemon=True).start()
         return True
+
+    def _watch_wmi(self):
+        try:
+            out = control.request({"exec": WMI_WATCH_PS}, timeout=60).get("out", "").strip()
+        except (OSError, EOFError, RuntimeError, TimeoutError) as e:
+            log.debug("ballon : surveillance WMI : %s", e)
+            return
+        if out.startswith("restart"):
+            log.warning("ballon : WMI en boucle (%s s de processeur en 5 s), service Balloon redémarré",
+                        out.split()[-1])
 
     def _adjust(self):
         with self.lock:

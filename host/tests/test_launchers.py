@@ -108,3 +108,27 @@ def test_embleme_facultatif():
         pytest.skip("emblème absent")
     png = _png()
     assert icons.compose(png, 48, True) != icons.compose(png, 48, False)
+
+
+def test_nom_de_l_invite_sans_injection(home):
+    # « \r » et U+2028 ne coupent pas une ligne pour GKeyFile, mais splitlines() les coupe quand
+    # le lanceur est réécrit : un nom d'application ne doit jamais pouvoir y glisser Exec=
+    apps, _config, _refreshed = home
+    evil = "Bloc\rExec=sh -c id [Autre]\x0bX=1\x00"
+    assert desktop.base_name(evil) == "Bloc Exec=sh -c id [Autre] X=1"
+    assert desktop.base_name({"a": 1}) == ""
+    assert desktop.ensure_app("notepad", evil, ["pas", "du", "texte"]) is True
+    path = apps / f"{desktop.app_desktop_id('notepad')}.desktop"
+    desktop._set_desktop_icon("notepad")  # réécriture par splitlines()
+    lines = path.read_text().splitlines()
+    assert [line for line in lines if line.startswith("Exec=")] == [f"Exec={desktop._launcher()} launch-app notepad %F"]
+    assert not any(line.startswith("[") for line in lines[1:])
+    assert desktop.load_registry()["notepad"]["exe"] == "notepad"
+
+
+def test_nombre_de_lanceurs_borne(home, monkeypatch):
+    apps, _config, _refreshed = home
+    monkeypatch.setattr(desktop, "MAX_APPS", 1)
+    assert desktop.ensure_app("un", "Un", "un.exe") is True
+    assert desktop.ensure_app("deux", "Deux", "deux.exe") is False
+    assert not (apps / f"{desktop.app_desktop_id('deux')}.desktop").exists()

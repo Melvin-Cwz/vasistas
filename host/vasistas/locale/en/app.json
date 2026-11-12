@@ -25,5 +25,7 @@
   "invité pas prêt": "guest not ready",
   "requête inconnue": "unknown request",
   "fenêtre absente ou pas recouverte dans Windows": "window missing or not covered in Windows",
-  "agent relancé": "agent restarted"
+  "agent relancé": "agent restarted",
+  "Bureau de Windows": "Windows desktop",
+  "Tout le bureau de Windows dans une fenêtre, avec la souris et le clavier": "The whole Windows desktop in a window, with mouse and keyboard"
 }

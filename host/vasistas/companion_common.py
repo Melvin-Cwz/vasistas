@@ -318,7 +318,9 @@ def confirm(parent, title, detail, action_label, on_yes, destructive=True, icon=
     # le constructeur porte un autre nom selon la version de PyGObject
     make = getattr(Granite.MessageDialog, "with_image_from_icon_name", None) or \
         Granite.MessageDialog.new_with_image_from_icon_name
-    dlg = make(title, detail, icon, Gtk.ButtonsType.NONE)
+    # Granite lit le texte secondaire comme du balisage Pango : un nom venu de Windows ou un « & »
+    # n'y est jamais interprété
+    dlg = make(title, GLib.markup_escape_text(detail), icon, Gtk.ButtonsType.NONE)
     dlg.set_transient_for(parent)
     dlg.set_modal(True)
     dlg.add_button(_("Annuler"), Gtk.ResponseType.CANCEL)
@@ -404,8 +406,10 @@ def clear(container):
 
 def texture_from_b64(data):
     try:
-        return Gdk.Texture.new_from_bytes(GLib.Bytes.new(base64.b64decode(data)))
-    except (GLib.Error, ValueError):
+        from .protocol import checked_png
+        # image décodée par GTK : un vrai PNG de taille bornée, d'où qu'elle vienne
+        return Gdk.Texture.new_from_bytes(GLib.Bytes.new(checked_png(base64.b64decode(data), 4096)))
+    except (GLib.Error, ValueError, TypeError):  # TypeError : autre chose qu'un texte en base64
         return None
 
 

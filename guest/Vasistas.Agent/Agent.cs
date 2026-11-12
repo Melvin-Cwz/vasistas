@@ -33,7 +33,7 @@ namespace Vasistas.Agent
         // version de Vasistas pour laquelle l'agent est construit (champ agentVersion du hello) :
         // à tenir égale à VERSION de host/vasistas/version.py ; l'hôte propose une mise à jour si
         // l'agent est plus ancien (version.newer)
-        const string AgentVersion = "0.10.0";
+        const string AgentVersion = "1.0.0-beta";
         // La liste des fenêtres suit les événements de Windows (SetWinEventHook) ; le balayage
         // périodique n'est plus qu'un filet de sécurité.
         const int FallbackScanMs = 500, MinScanGapMs = 8, SyncMs = 3000, IdleWaitMs = 500, NoHostWaitMs = 1000;
@@ -56,6 +56,9 @@ namespace Vasistas.Agent
             "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW",
             "Windows.UI.Core.CoreWindow", "IME", "MSCTFIME UI", "Shell_InputSwitchTopLevelWindow",
             "XamlExplorerHostIslandWindow", "TopLevelWindowForOverflowXamlIsland",
+            // ombre des boîtes de dialogue WinForms (CS_DROPSHADOW) : suivie, elle doublait la boîte
+            // sur Linux avec une copie décalée (Power BI, 2026-10-19)
+            "SysShadow",
         };
         // Fenêtres visibles qui ne cachent rien : ombres et halos posés autour des fenêtres
         static readonly HashSet<string> NonOccluding = new HashSet<string>
@@ -356,6 +359,9 @@ namespace Vasistas.Agent
                 lastHello = nowHello;
                 if (repeat) return;
                 ch.ClearQueue();
+                // hôte relancé : il a perdu les images de curseur déjà envoyées (redimensionnement
+                // des colonnes de Power BI devenu curseur normal, 2026-10-19) ; le survol les renverra
+                cursorsSent = false;
                 ch.Zstd = m.TryGetValue("zstd", out var zv) && zv is bool zstd && zstd && Zstd.Ready;
                 ch.HostReady = true;
                 captureWake.Set();
@@ -415,6 +421,16 @@ namespace Vasistas.Agent
                 timerWanted = Int(m, "timer_ms") > 0;
                 return;
             }
+
+            // bureau entier montré par l'hôte (fenêtre « Bureau de Windows ») : coordonnées de l'écran
+            if (t == "screen.move") { Input.MoveTo(Int(m, "x"), Int(m, "y")); return; }
+            if (t == "screen.button")
+            {
+                Input.MoveTo(Int(m, "x"), Int(m, "y"));
+                Input.Button(Int(m, "button"), Bool(m, "down"));
+                return;
+            }
+            if (t == "screen.wheel") { Input.MoveTo(Int(m, "x"), Int(m, "y")); Input.Wheel(Int(m, "dx"), Int(m, "dy")); return; }
 
             var tw = Find(Int(m, "id"));
             if (tw == null) return;
@@ -779,6 +795,12 @@ namespace Vasistas.Agent
                 target = Native.GetAncestor(target, 1); // GA_PARENT
                 hit = 1;
             }
+            if (!cursorsSent)
+            {
+                customCursors.Clear();
+                cursorsSent = true;
+                tw.Cursor = null;
+            }
             var ci = new CURSORINFO { cbSize = Marshal.SizeOf<CURSORINFO>() };
             string cursor = "default";
             if (Native.GetCursorInfo(ref ci) && ci.hCursor != IntPtr.Zero)
@@ -793,11 +815,37 @@ namespace Vasistas.Agent
         }
 
         readonly Dictionary<IntPtr, string> customCursors = new Dictionary<IntPtr, string>();
+        volatile bool cursorsSent = true;  // faux : vider customCursors au prochain survol (fil du survol)
 
         /// <summary>
         /// Curseur propre à une application : son image part une fois vers l'hôte, qui
         /// affiche la même forme ; le survol ne transmet ensuite que son nom.
         /// </summary>
+        /// <summary>
+        /// Image d'un curseur. Un curseur monochrome (masques ET/OU exclusif, sans image couleur,
+        /// ex. redimensionnement des colonnes de Power BI) sortait blanc et illisible par
+        /// Icon.ToBitmap : les pixels inversés passent en noir, le reste suit les masques.
+        /// </summary>
+        static System.Drawing.Bitmap CursorBitmap(IntPtr h, ICONINFO info)
+        {
+            if (info.hbmColor != IntPtr.Zero)
+                using (var icon = System.Drawing.Icon.FromHandle(h)) return icon.ToBitmap();
+            using (var mask = System.Drawing.Image.FromHbitmap(info.hbmMask))
+            {
+                int w = mask.Width, hh = mask.Height / 2;
+                var bmp = new System.Drawing.Bitmap(w, hh, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                for (int y = 0; y < hh; y++)
+                    for (int x = 0; x < w; x++)
+                    {
+                        bool and = mask.GetPixel(x, y).GetBrightness() > 0.5f;
+                        bool xor = mask.GetPixel(x, y + hh).GetBrightness() > 0.5f;
+                        bmp.SetPixel(x, y, and && !xor ? System.Drawing.Color.Transparent
+                            : !and && xor ? System.Drawing.Color.White : System.Drawing.Color.Black);
+                    }
+                return bmp;
+            }
+        }
+
         string CustomCursor(IntPtr h)
         {
             if (customCursors.TryGetValue(h, out var known)) return known;
@@ -808,8 +856,7 @@ namespace Vasistas.Agent
                 {
                     try
                     {
-                        using (var icon = System.Drawing.Icon.FromHandle(h))
-                        using (var bmp = icon.ToBitmap())
+                        using (var bmp = CursorBitmap(h, info))
                         using (var ms = new System.IO.MemoryStream())
                         {
                             bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);

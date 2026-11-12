@@ -48,7 +48,7 @@ BATTERY_SHUTDOWN_CHOICES = (0, 5, 10, 15, 30)
 BOOT_SLEEP_SETTLE_S = 20
 BOOT_SLEEP_ENV = "VASISTAS_BOOT_SLEEP"
 # messages vers l'invité qui comptent comme un usage
-ACTIVE = {"mouse.move", "mouse.button", "mouse.wheel", "key", "launch", "exec", "window.activate",
+ACTIVE = {"mouse.move", "mouse.button", "mouse.wheel", "screen.move", "screen.button", "screen.wheel", "key", "launch", "exec", "window.activate",
           "window.resize", "window.close", "clipboard", "debug.windows", "bench.post"}
 
 
@@ -152,8 +152,13 @@ class SleepManager:
         if not going_down and self.app.guest_ready:
             GLib.timeout_add_seconds(3, self.sync_clock)
 
+    def _open(self):
+        """Vrai si une fenêtre de Windows est ouverte sous Linux, celle du bureau entier comprise."""
+        return bool(self.app.views) or getattr(self.app, "desktop_win", None) is not None
+
     def _idle_minutes(self):
-        if any(getattr(v, "is_active", lambda: False)() for v in self.app.views.values()):
+        if any(getattr(v, "is_active", lambda: False)() for v in self.app.views.values()) \
+                or getattr(getattr(self.app, "desktop_win", None), "is_active", lambda: False)():
             self.last_use = time.monotonic()
         return (time.monotonic() - self.last_use) / 60
 
@@ -167,13 +172,13 @@ class SleepManager:
             return True
         if self.ready_since is None:
             self.ready_since = now
-        if self.app.views:
+        if self._open():
             self.empty_since = None
         elif self.empty_since is None:
             self.empty_since = now
         if self.boot_sleep and now - self.ready_since >= BOOT_SLEEP_SETTLE_S:
             self.boot_sleep = False
-            if not self.app.views and not self.app.launch_queue and not self.app.pending_exec:
+            if not self._open() and not self.app.launch_queue and not self.app.pending_exec:
                 if self.pause():
                     log.info("Windows prêt et mis en veille (démarrage en veille)")
         return True
@@ -192,21 +197,21 @@ class SleepManager:
         minutes = s["auto_shutdown_min"]
         if s["battery_shutdown_min"] and on_battery():
             minutes = min(m for m in (minutes, s["battery_shutdown_min"]) if m)
-        if auto_shutdown_due(minutes, bool(self.app.views), self.empty_since, time.monotonic()):
+        if auto_shutdown_due(minutes, self._open(), self.empty_since, time.monotonic()):
             log.info("Windows arrêté : aucune fenêtre ouverte depuis %d min", minutes)
             self.empty_since = None
             self.wake()
             threading.Thread(target=vm.stop, daemon=True).start()
             return
         idle = self._idle_minutes()
-        if not self.app.views and s["sleep_without_windows_minutes"] and not self.paused \
+        if not self._open() and s["sleep_without_windows_minutes"] and not self.paused \
                 and idle >= s["sleep_without_windows_minutes"]:
             if self.pause():
                 log.info("Windows en veille : aucune fenêtre ouverte depuis %d min", idle)
             return
         if s["sleep_on_battery_only"] and not on_battery():
             return
-        if s["shutdown_minutes"] and idle >= s["shutdown_minutes"] and not self.app.views:
+        if s["shutdown_minutes"] and idle >= s["shutdown_minutes"] and not self._open():
             log.info("Windows éteint après %d min sans usage", idle)
             self.wake()
             threading.Thread(target=vm.stop, daemon=True).start()

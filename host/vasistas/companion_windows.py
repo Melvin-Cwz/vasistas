@@ -184,7 +184,7 @@ class WindowsPage(ColumnsPage):
 
         def work():
             try:
-                res = control.request({"exec": CONFIGURE.read_text(encoding="utf-8-sig")}, timeout=1800)
+                res = control.request({"exec": vm.configure_script()}, timeout=1800)
                 out = res.get("out") or ""
                 msg = _("Windows est configuré pour Vasistas") if res.get("code") == 0 else \
                     _("Configuration incomplète : {detail}", detail=out.strip().splitlines()[-2][:160]) \

@@ -41,6 +41,7 @@ ALIASES = {"olk": "outlook"}
 
 # identifiant venu de l'invité : il entre dans un lanceur (ligne Exec) et un chemin d'icône
 _APP_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
+MAX_APPS = 500
 
 
 def canonical_app(app):
@@ -95,7 +96,10 @@ def launcher_name(name, suffix):
 def base_name(name):
     """Nom sans le suffixe « (Windows) » (ni sa traduction)."""
     from .i18n import _
-    name = (name or "").replace("\n", " ").strip()
+    # nom venu de l'invité, écrit dans un lanceur : une seule ligne. Tout séparateur de ligne
+    # (\r, U+2028… que splitlines() coupe à la réécriture) permettrait d'y glisser une ligne Exec=
+    name = " ".join(name.split()) if isinstance(name, str) else ""
+    name = "".join(c for c in name if c.isprintable())[:100]
     for suffix in {" (Windows)", " " + _("{name} (Windows)", name="").strip()}:
         if name.endswith(suffix) and len(name) > len(suffix):
             return name[:-len(suffix)]
@@ -325,7 +329,12 @@ def save_app_icon(app, png: bytes):
     """Icône extraite de l'exécutable Windows, composée au format elementary (voir icons.py).
     L'originale est gardée dans ~/.local/share/vasistas/icons pour la personnalisation."""
     from . import icons
+    from .protocol import checked_png
     from .vm import DATA
+    try:
+        checked_png(png, 1024)  # image venue de l'invité, composée pixel par pixel dans le fil GTK
+    except ValueError:
+        return
     raw = DATA / "icons" / f"{app}.png"
     if raw.exists() and raw.read_bytes() == png and app_icon_path(app).exists():
         return
@@ -359,6 +368,11 @@ def ensure_app(app, name, exe):
     Masqué du menu (NoDisplay) : il sert au dock ; l'application compagnon choisira
     lesquelles afficher. Nom de fichier en minuscules : Gala compare en minuscules."""
     reg = load_registry()
+    # valeurs venues de l'invité : du texte borné, et pas plus de MAX_APPS lanceurs
+    name = base_name(name)
+    exe = exe[:1024] if isinstance(exe, str) else None
+    if app not in reg and len(reg) >= MAX_APPS:
+        return False
     entry = {"name": name or app, "exe": exe or app}
     if reg.get(app) != entry:
         reg[app] = {**reg.get(app, {}), **entry}

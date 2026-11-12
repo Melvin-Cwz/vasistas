@@ -58,3 +58,30 @@ def test_vasistas_words_untouched():
 def test_required_packages_from_install_sh():
     pkgs = diagnose.required_packages()
     assert "qemu-system-x86" in pkgs and "virtiofsd" in pkgs
+
+
+def test_network_identifiers_masked():
+    out = anon("eth0 52:54:00:12:34:56 ip 192.168.1.42 via 8.8.8.8, invité 10.0.2.15, lo 127.0.0.1, "
+               "v6 2a01:cb00:1234:5678::1 local fe80::1 boucle ::1 heure 12:30:45")
+    assert "52:54" not in out and "<mac>" in out
+    assert "192.168" not in out and "8.8.8.8" not in out
+    assert "10.0.2.15" in out and "127.0.0.1" in out
+    assert "2a01" not in out and "fe80::1" in out and "::1" in out and "12:30:45" in out
+
+
+def test_wifi_names_masked():
+    out = anon("connexion ESSID: \"BoxDeMarie\" ok\nSSID=Cafe du coin\nnmcli: MaBox:wpa2\nlien suivant")
+    assert "BoxDeMarie" not in out and "Cafe" not in out and "MaBox" not in out
+    assert "lien suivant" in out
+
+
+def test_url_credentials_and_tokens_masked():
+    out = anon("GET https://bob:hunter2@exemple.org/x?token=abc123&a=1&api_key=zzz&key=yyy")
+    for leak in ("bob", "hunter2", "abc123", "zzz", "yyy"):
+        assert leak not in out
+    assert "a=1" in out
+
+
+def test_short_user_name_masked():
+    out = diagnose.anonymize("session al sur pc ; plus loin alors", "/home/al", "al", host="pc")
+    assert "<utilisateur>" in out and "<machine>" in out and "alors" in out

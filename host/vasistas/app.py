@@ -29,13 +29,18 @@ from . import placement, protocol, vm  # noqa: E402
 from .channel import Channel  # noqa: E402
 from .display import Screen  # noqa: E402
 from .i18n import _  # noqa: E402
-from .window import CSS, MAP_GRACE_MS, GuestPopup, GuestWindow  # noqa: E402
+from .window import CSS, MAP_GRACE_MS, DesktopWindow, GuestPopup, GuestWindow  # noqa: E402
 
 log = logging.getLogger(__name__)
 
 APP_ID = "io.github.melvincouwez.Vasistas"
 DEACTIVATE_DELAY_MS = 80
 SCALE_DEBOUNCE_MS = 1000
+# Applications qui se redessinent mal après un changement d'échelle de Windows à chaud (Power BI :
+# contenu décalé, bandes noires, 2026-10-19) : un aller-retour de taille les force à se remettre
+# en page une fois l'échelle appliquée.
+REFLOW_APPS = ("pbidesktop",)
+REFLOW_AFTER_MS = 1500
 READY_TIMEOUT_S = 150
 SPLASH_MAX_S = 45
 
@@ -81,7 +86,8 @@ def _suspend_offset():
 
 def notify(summary, body=""):
     try:
-        subprocess.Popen(["notify-send", "-a", "Vasistas", summary, body])
+        # « -- » : un texte venu de l'invité ou d'un nom de fichier n'est jamais lu comme une option
+        subprocess.Popen(["notify-send", "-a", "Vasistas", "--", summary, body])
     except OSError:
         pass
 
@@ -112,9 +118,34 @@ def longest_run(values, gap=3):
     return best
 
 
+# Masquage automatique de la barre des tâches, sans relancer l'Explorateur (ABM_SETSTATE)
+TASKBAR_PS = r"""
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public class VasistasTaskbar {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint uCallbackMessage; public uint uEdge;
+                               public int left, top, right, bottom; public IntPtr lParam; }
+    [DllImport("shell32.dll")] public static extern IntPtr SHAppBarMessage(uint msg, ref APPBARDATA data);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
+    public static void AutoHide(bool hide) {
+        var d = new APPBARDATA();
+        d.cbSize = Marshal.SizeOf(d);
+        d.hWnd = FindWindow("Shell_TrayWnd", null);
+        d.lParam = (IntPtr)(hide ? 1 : 2);   // ABS_AUTOHIDE ou ABS_ALWAYSONTOP
+        SHAppBarMessage(10, ref d);          // ABM_SETSTATE
+    }
+}
+'@
+[VasistasTaskbar]::AutoHide(@HIDE@)
+"""
+
 class VasistasApp(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
+        # Vasistas Beta : identifiant à part, les deux hôtes ne se confondent pas (fenêtres Windows inchangées)
+        super().__init__(application_id=APP_ID + (".Beta" if vm.PROFILE == "beta" else ""),
+                         flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.views = {}           # id -> GuestWindow | GuestPopup
         self.infos = {}           # id -> dernier état connu (window.new + updates)
         self.textures = {}        # id -> dernière image, pour les vues créées plus tard
@@ -141,11 +172,13 @@ class VasistasApp(Gtk.Application):
         self.splash_app = None
         self.pending_exec = {}    # req -> fonction de réponse du socket de contrôle
         self.screen_texture = None
+        self.desktop_win = None     # fenêtre « Bureau de Windows » (DesktopWindow), ouverte à la demande
         self.no_dmabuf = False      # import dmabuf refusé une fois : copie ensuite
         self.dmabuf_logged = False
         self.bench_state = None
         self.bench_occ = None       # banc de la fenêtre recouverte (bench_occluded)
         self.bench_resolution = None  # résolution d'essai imposée par le banc
+        self.desktop_resolution = None  # mode « Fenêtre indépendante » : résolution calée sur la fenêtre
         self.cursors = {}         # curseurs d'image envoyés par l'agent, par nom
         self.all_windows = set()  # toutes les fenêtres hôte créées, pour le balayage des orphelines
         self.screen = None        # écran lu dans QEMU (affichage D-Bus), sinon None
@@ -439,7 +472,13 @@ class VasistasApp(Gtk.Application):
         settling = False
         now_ms = GLib.get_monotonic_time() // 1000
         for view in list(self.views.values()):
-            if not isinstance(view, GuestWindow) or not view.get_visible() or not view.get_realized():
+            if not isinstance(view, GuestWindow):
+                continue
+            if not view.get_realized():
+                # fenêtre pas encore affichée : ne pas prendre d'ici là le plus grand écran
+                settling = True
+                continue
+            if not view.get_visible():
                 continue
             if view.moving or now_ms - (getattr(view, "map_time", 0) or 0) < MAP_GRACE_MS:
                 settling = True
@@ -485,10 +524,17 @@ class VasistasApp(Gtk.Application):
         if self.guest_ready:
             if changed:
                 log.info("échelle de l'invité : %.3f (%s)", scale, monitor.get_connector())
+                GLib.timeout_add(REFLOW_AFTER_MS, self._reflow)
             # redonnée même sans changement côté hôte : Windows a pu en changer seul (échelle
             # mémorisée par résolution, réglage à la main) ; l'agent ne fait rien si elle est juste
             self.send({"t": "display", "scale": windows_step(scale)})
         self._apply_resolution()
+        return False
+
+    def _reflow(self):
+        for view in list(self.views.values()):
+            if isinstance(view, GuestWindow) and view.app_name in REFLOW_APPS and view.get_mapped():
+                view.reflow()
         return False
 
     def _apply_resolution(self, force=False):
@@ -502,6 +548,8 @@ class VasistasApp(Gtk.Application):
         sizes = [(round(m.get_geometry().width * m.get_scale()), round(m.get_geometry().height * m.get_scale()))
                  for m in items]
         w, h = max(x for x, _ in sizes), max(y for _, y in sizes)
+        if self.desktop_resolution:
+            w, h = self.desktop_resolution
         if self.bench_resolution:
             w, h = self.bench_resolution
         # déjà demandée à cet écran : pas redemandée à chaque calcul d'échelle si Windows la refuse
@@ -794,29 +842,54 @@ class VasistasApp(Gtk.Application):
 
     # -- activation --
 
+    def _screen_pixels(self):
+        """(octets BGRX, pas de ligne) de tout l'écran : la mémoire partagée, ou pour l'écran de
+        la carte accélérée (Vasistas Beta) une relecture de la texture affichée (rare : aperçu,
+        vignette du compagnon)."""
+        sc = self.screen
+        if sc.fb is not None:
+            return sc.fb, sc.stride
+        if self.screen_texture is None:
+            return None, 0
+        d = Gdk.TextureDownloader.new(self.screen_texture)
+        d.set_format(Gdk.MemoryFormat.B8G8R8X8)
+        data, stride = d.download_bytes()
+        data = data.get_data()
+        if sc.gpu is not None and sc.gpu["y0_top"]:
+            # tampon rendu à l'envers pour GL (y0_top vrai) : lignes remises dans l'ordre de Windows
+            mv = memoryview(data)
+            data = b"".join(mv[r * stride:(r + 1) * stride] for r in range(sc.height - 1, -1, -1))
+        return data, stride
+
     def screen_region(self, rect):
         """Copie d'un rectangle (pixels invité) de l'écran de QEMU, en texture ; None sans écran."""
         sc = self.screen
-        if sc is None or sc.fb is None:
+        if sc is None or not sc.has_frame:
             return None
         x, y, w, h = rect
         x, y = max(0, x), max(0, y)
         w, h = min(w, sc.width - x), min(h, sc.height - y)
         if w <= 0 or h <= 0:
             return None
-        fb = memoryview(sc.fb)
-        data = b"".join(fb[(y + r) * sc.stride + x * 4:(y + r) * sc.stride + (x + w) * 4] for r in range(h))
+        pixels, stride = self._screen_pixels()
+        if pixels is None:
+            return None
+        fb = memoryview(pixels)
+        data = b"".join(fb[(y + r) * stride + x * 4:(y + r) * stride + (x + w) * 4] for r in range(h))
         return Gdk.MemoryTexture.new(w, h, Gdk.MemoryFormat.B8G8R8X8, GLib.Bytes.new(data), w * 4)
 
     def screen_thumbnail(self, width):
         """Écran de Windows réduit à `width` pixels environ (une colonne et une ligne sur k),
         en PNG base64 pour le compagnon ; None sans écran."""
         sc = self.screen
-        if sc is None or sc.fb is None or not sc.width or not sc.height:
+        if sc is None or not sc.has_frame or not sc.width or not sc.height:
             return None
         k = max(1, sc.width // max(64, width))
-        fb = memoryview(sc.fb)
-        rows = [fb[y * sc.stride:y * sc.stride + sc.width * 4].cast("I")[::k].tolist()
+        pixels, stride = self._screen_pixels()
+        if pixels is None:
+            return None
+        fb = memoryview(pixels)
+        rows = [fb[y * stride:y * stride + sc.width * 4].cast("I")[::k].tolist()
                 for y in range(0, sc.height, k)]
         # recadré sur ce qui n'est pas noir (Windows n'occupe souvent qu'une partie de l'écran) ;
         # une ligne ou une colonne compte si plus de 3 % de ses points sont allumés
@@ -948,6 +1021,10 @@ class VasistasApp(Gtk.Application):
             GLib.source_remove(self.ready_timeout)
             self.ready_timeout = 0
         self._flush_launches()
+        if self.desktop_win is not None:
+            self._taskbar(True)  # boot.ps1 la remasque à chaque ouverture de session
+        elif self.single_window():
+            self.show_desktop()
         if not getattr(self, "slim_kept", False) and not os.environ.get("VASISTAS_SOCKET"):
             self.slim_kept = True
             threading.Thread(target=self._slim_keep_up, name="vasistas-slim", daemon=True).start()
@@ -1114,7 +1191,11 @@ class VasistasApp(Gtk.Application):
                    "screen": [self.screen.width, self.screen.height] if self.screen else None})
         elif "stats" in req:
             reply({"stalls": dict(self.stalls), "views": len(self.views), "frames": self.frames_total,
-                   "dmabuf": self.screen is not None and self.screen.dmabuf is not None and not self.no_dmabuf,
+                   "dmabuf": self.screen is not None and (self.screen.gpu is not None or
+                                                           (self.screen.dmabuf is not None and not self.no_dmabuf)),
+                   # Vasistas Beta : images composées par la carte graphique reçues (UpdateDMABUF)
+                   "gpu": self.screen is not None and self.screen.gpu is not None,
+                   "gpu_frames": self.screen.gpu_frames if self.screen is not None else 0,
                    "channel": self.channel.stats()})
         elif "explain" in req:
             if not self.guest_ready:
@@ -1133,6 +1214,13 @@ class VasistasApp(Gtk.Application):
             reply({"ok": True})
         elif "reset_windows" in req:
             reply({"count": self.reset_windows()})
+        elif "desktop" in req:
+            # vrai : fenêtre indépendante ; faux : retour aux fenêtres intégrées
+            if req["desktop"]:
+                self.show_desktop()
+            elif self.desktop_win is not None:
+                self.desktop_win.close()
+            reply({"ok": True})
         elif "thumbnail" in req:
             reply({"png": self.screen_thumbnail(int(req["thumbnail"] or 480))})
         elif "status" in req:
@@ -1153,9 +1241,11 @@ class VasistasApp(Gtk.Application):
         try:
             from gi.repository import GdkPixbuf
             loader = GdkPixbuf.PixbufLoader.new_with_type("png")
-            loader.write(base64.b64decode(msg["png"]))
+            loader.write(protocol.checked_png(base64.b64decode(msg["png"]), 512))
             loader.close()
             pb = loader.get_pixbuf()
+            if len(self.cursors) >= 256:  # l'invité ne fait pas grossir ce cache sans fin
+                self.cursors.clear()
             k = max(1.0, self.scale)
             w, h = max(1, round(pb.get_width() / k)), max(1, round(pb.get_height() / k))
             if (w, h) != (pb.get_width(), pb.get_height()):
@@ -1204,6 +1294,11 @@ class VasistasApp(Gtk.Application):
                 self._create(other)
 
     def _create(self, wid, delay_ms=0):
+        if self.desktop_win is not None:
+            return  # tout Windows est dans la fenêtre du bureau
+        if self.single_window():
+            self.show_desktop()  # application lancée, fenêtre du bureau fermée entre-temps
+            return
         info = self.infos[wid]
         owner = info.get("owner") or 0
         if info.get("kind") == "popup" and owner:
@@ -1433,7 +1528,8 @@ class VasistasApp(Gtk.Application):
             # une horloge qui ne bat pas. Sans fenêtre Windows active (on travaille dans une
             # application Linux), 10 images par seconde au plus suffisent.
             self.damage_source = -1
-            if any(isinstance(v, GuestWindow) and v.is_active() for v in self.views.values()):
+            if any(isinstance(v, GuestWindow) and v.is_active() for v in self.views.values()) \
+                    or (self.desktop_win is not None and self.desktop_win.is_active()):
                 view.add_tick_callback(lambda *_: self._flush_damage())
                 self.damage_guard = GLib.timeout_add(50, self._guard_flush)
             else:
@@ -1445,11 +1541,67 @@ class VasistasApp(Gtk.Application):
     def screen_resume(self):
         """Une fenêtre redevient visible ou active : image de tout l'écran refaite si des zones
         ont été laissées de côté entre-temps."""
-        if self.screen_stale and self.screen is not None and self.screen.fb is not None:
+        if self.screen_stale and self.screen is not None and self.screen.has_frame:
             self.screen_stale = False
             self._on_damage(0, 0, self.screen.width, self.screen.height)
 
+    def show_desktop(self):
+        """Mode « Fenêtre indépendante » : tout Windows dans une seule fenêtre, à la résolution
+        de cette fenêtre, barre des tâches visible. Les fenêtres d'application de Linux sont
+        retirées (elles feraient double emploi) et reviennent à la fermeture (leave_desktop)."""
+        if self.desktop_win is None:
+            known = dict(self.infos)
+            for wid in list(self.views):
+                self._close(wid)
+            self.infos.update(known)  # toujours connues : recréées en quittant le mode
+            self.desktop_win = DesktopWindow(self)
+            self._taskbar(True)
+        self.desktop_win.present()
+        if self.sleep is not None:
+            self.sleep.activity()
+        if self.screen is not None and self.screen.has_frame:
+            self._on_damage(0, 0, self.screen.width, self.screen.height)
+
+    def set_desktop_resolution(self, size):
+        if size != self.desktop_resolution:
+            self.desktop_resolution = size
+            self._apply_resolution(force=True)
+
+    def leave_desktop(self):
+        """Fenêtre du bureau fermée : retour aux fenêtres intégrées, à la résolution des écrans."""
+        self.desktop_win = None
+        self.desktop_resolution = None
+        self._taskbar(False)
+        self._apply_resolution(force=True)
+        if not self.single_window():
+            # une fois Windows revenu à sa résolution : une fenêtre Linux par fenêtre de Windows
+            GLib.timeout_add(1200, self._recreate_views)
+
+    def _recreate_views(self):
+        if self.desktop_win is None:
+            for _pass in range(2):  # les fenêtres, puis leurs menus
+                for wid in list(self.infos):
+                    if wid not in self.views and wid not in self.inline:
+                        self._create(wid)
+        return False
+
+    def _taskbar(self, shown):
+        """Barre des tâches de Windows toujours visible (fenêtre indépendante) ou masquée
+        automatiquement (fenêtres intégrées, où elle recouvrirait le bas des fenêtres)."""
+        if self.guest_ready:
+            self.run_script(TASKBAR_PS.replace("@HIDE@", "$false" if shown else "$true"), lambda res: None)
+
+    @staticmethod
+    def single_window():
+        """Vrai si le réglage demande tout Windows dans une seule fenêtre."""
+        try:
+            return vm.load_config().get("display_mode") == "single"
+        except (OSError, ValueError):
+            return False
+
     def _tick_view(self):
+        if self.desktop_win is not None and self.desktop_win.get_mapped():
+            return self.desktop_win.view
         for wid, v in self.views.items():
             if isinstance(v, GuestWindow) and v.get_mapped() and not v.is_suspended() \
                     and self._from_screen(wid):
@@ -1458,6 +1610,22 @@ class VasistasApp(Gtk.Application):
 
     def _screen_builder(self, scr):
         """Texture de tout l'écran : dmabuf sans copie si possible, copie mémoire sinon."""
+        if scr.gpu is not None:
+            # Vasistas Beta : tampon de la carte graphique, tel quel (format et modificateur de
+            # tuilage du pilote) ; pas de repli possible par copie
+            g = scr.gpu
+            b = Gdk.DmabufTextureBuilder()
+            b.set_display(Gdk.Display.get_default())
+            b.set_width(g["backing"][0])
+            b.set_height(g["backing"][1])
+            b.set_fourcc(g["fourcc"])
+            b.set_modifier(g["modifier"])
+            b.set_premultiplied(True)
+            b.set_n_planes(1)
+            b.set_fd(0, g["fd"])
+            b.set_stride(0, g["stride"])
+            b.set_offset(0, g["offset"])
+            return b, True
         if scr.dmabuf is not None and not self.no_dmabuf:
             fd, offset = scr.dmabuf
             b = Gdk.DmabufTextureBuilder()
@@ -1496,9 +1664,11 @@ class VasistasApp(Gtk.Application):
         self.damage_source = 0
         rects, self.damage = self.damage, []
         scr = self.screen
-        if scr is None or scr.fb is None:
+        if scr is None or not scr.has_frame:
             return False
         t0 = time.perf_counter()
+        from . import window as _window
+        _window.SCREEN_FLIP["on"] = scr.gpu is not None and scr.gpu["y0_top"]
         builder, dmabuf = self._screen_builder(scr)
         prev = self.screen_texture
         if HAVE_CAIRO_REGION and prev is not None \
@@ -1511,6 +1681,9 @@ class VasistasApp(Gtk.Application):
         try:
             self.screen_texture = builder.build(None, None) if dmabuf else builder.build()
         except GLib.Error as e:
+            if scr.gpu is not None:
+                log.error("écran de la carte accélérée refusé par GTK : %s", e.message)
+                return False
             log.warning("pas de zéro copie (%s) : retour à la copie", e.message)
             self.no_dmabuf = True
             builder, _ = self._screen_builder(scr)
@@ -1527,6 +1700,8 @@ class VasistasApp(Gtk.Application):
                         or view.view.texture is not self.screen_texture or tuple(rect) != view.view.src_rect:
                     view.view.set_screen(self.screen_texture, rect)
                     n += 1
+        if self.desktop_win is not None:
+            self.desktop_win.view.queue_draw()
         self.perf["crops"] += n
         self.frames_total += 1
         self.perf["crop_ms"] += (time.perf_counter() - t0) * 1000
@@ -1614,7 +1789,7 @@ class VasistasApp(Gtk.Application):
             self.screen_resume()  # texture en retard : image entière refaite d'abord
             return False
         if self.screen_texture is None:
-            if self.screen is not None and self.screen.fb is not None:
+            if self.screen is not None and self.screen.has_frame:
                 self._on_damage(0, 0, self.screen.width, self.screen.height)
             return
         for wid in wids:

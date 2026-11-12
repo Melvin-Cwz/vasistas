@@ -13,6 +13,7 @@ Un dépôt git (développement) ne se met pas à jour ici : git pull.
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -31,6 +32,7 @@ HOST_DIR = Path(__file__).resolve().parents[1]
 SOURCE_DIR = HOST_DIR.parent
 CACHE = DATA / "update.json"
 CHECK_EVERY_S = 24 * 3600
+_VERSION = re.compile(r"\d[0-9A-Za-z.+~-]{0,39}")
 API = f"https://api.github.com/repos/{version.GITHUB_REPO}/releases?per_page=10"
 
 
@@ -50,6 +52,8 @@ def mode():
 
 
 def _get(url, timeout=15, accept="application/vnd.github+json"):
+    if not str(url).startswith("https://"):  # urlopen ouvrirait aussi file:// ou http://
+        raise UpdateError(_("Cette version publiée n'a pas d'archive d'installation."))
     req = urllib.request.Request(url, headers={"Accept": accept,
                                                "User-Agent": f"Vasistas/{version.VERSION}"})
     return urllib.request.urlopen(req, timeout=timeout)
@@ -135,7 +139,8 @@ def install(release, progress=None, cancel=None):
     """Télécharge, vérifie et installe `release` (voir latest()). Rend le dossier installé."""
     if mode() == "dev":
         raise UpdateError(_("Version de développement (dépôt git) : mettre à jour avec git pull."))
-    if not release or not release.get("asset"):
+    # le numéro de version devient un nom de dossier, supprimé puis recréé : jamais un chemin
+    if not release or not release.get("asset") or not _VERSION.fullmatch(release.get("version") or ""):
         raise UpdateError(_("Cette version publiée n'a pas d'archive d'installation."))
     work = DATA / "updates"
     shutil.rmtree(work, ignore_errors=True)

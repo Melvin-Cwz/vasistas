@@ -36,7 +36,7 @@ class WindowsNotifications:
         if self.bus is None:
             return
         from . import desktop
-        app = msg.get("app") or ""
+        app = desktop.canonical_app(msg.get("app")) or ""  # sert à un chemin d'icône
         name = msg.get("appName") or app or "Windows"
         hints = {"urgency": GLib.Variant("y", 1)}
         icon = ""

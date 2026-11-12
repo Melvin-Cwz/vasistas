@@ -1,4 +1,44 @@
 {
+  "1.0.0-beta": {
+    "fr": [
+      "Vasistas 1.0 (Bêta) : une seule application, qui réunit l'ancien compagnon, l'assistant d'installation et la fenêtre de Windows.",
+      "Nouvelle interface : barre latérale, bandeau d'état avec aperçu en direct de Windows, choix entre mode intégré et mode bureau, réglages des ressources (processeur, mémoire vive, mise en veille).",
+      "Carte graphique accélérée : Windows s'exécute sur la carte graphique de l'ordinateur grâce au pilote accel-virt, compilé sur place.",
+      "Assistant en un clic : Windows, ses outils, vos applications, le pilote graphique et les mises à jour s'installent d'une traite, sans intervention.",
+      "Mode bureau : la fenêtre de Windows vit à part, sans dépendre de l'application principale.",
+      "Nouveau bouton « Afficher le bureau de Windows » pour voir et piloter Windows pendant l'installation.",
+      "Sécurité : le mot de passe du compte ne reste plus dans l'image d'installation ni dans les copies laissées par Windows, l'ouverture de session automatique ne le garde plus en clair, et le rapport de diagnostic masque adresses réseau, noms Wi-Fi et jetons.",
+      "Dossiers partagés : le démon virtiofsd s'isole désormais (sandbox namespace) et un dossier peut être partagé en lecture seule."
+    ],
+    "en": [
+      "Vasistas 1.0 (Beta): a single application that merges the former companion, the setup assistant and the Windows window.",
+      "New interface: sidebar, status banner with a live preview of Windows, a choice between integrated mode and desktop mode, and resource settings (processor, memory, sleep).",
+      "Accelerated graphics card: Windows runs on the computer's own GPU through the accel-virt driver, built locally.",
+      "One-click assistant: Windows, its tools, your applications, the graphics driver and updates all install in one go, hands-free.",
+      "Desktop mode: the Windows window lives on its own, without depending on the main application.",
+      "New \"Show the Windows desktop\" button to watch and drive Windows during setup.",
+      "Security: the account password no longer stays in the install image or in copies left by Windows, automatic sign-in no longer keeps it in clear text, and the diagnostic report hides network addresses, Wi-Fi names and tokens.",
+      "Shared folders: the virtiofsd daemon is now isolated (namespace sandbox) and a folder can be shared read-only."
+    ]
+  },
+  "0.11.0": {
+    "fr": [
+      "Vasistas Beta (profil à part, la VM principale n'est pas touchée) : Windows dispose d'une carte graphique accélérée qui s'exécute sur celle de l'ordinateur, grâce au pilote accel-virt compilé sur place.",
+      "Allègement : deux nouveaux éléments, « Autres applications Microsoft inutiles » et « Applications tierces préinstallées » (liste reprise de Win11Debloat).",
+      "Les curseurs monochromes de Windows, comme celui du redimensionnement des colonnes de Power BI, s'affichent correctement au lieu d'un carré blanc, y compris après un redémarrage de Vasistas.",
+      "Les boîtes de dialogue de Power BI et des autres applications WinForms ne sont plus doublées par leur ombre.",
+      "Si le service de mémoire de Windows entraîne WMI dans une boucle qui occupe un cœur, Vasistas le redémarre seul (vérifié sur secteur seulement).",
+      "Sur batterie, Windows reste sur un nombre raisonnable de cœurs même s'il a démarré en mode Performances."
+    ],
+    "en": [
+      "Vasistas Beta (separate profile, the main VM is left untouched): Windows gets an accelerated graphics card that runs on the computer's own GPU, through the accel-virt driver built locally.",
+      "Slimming: two new items, “Other unneeded Microsoft apps” and “Preinstalled third-party apps” (list taken from Win11Debloat).",
+      "Monochrome Windows cursors, such as Power BI's column resize cursor, now display properly instead of a white square, including after Vasistas restarts.",
+      "Power BI and other WinForms dialogs are no longer doubled by their shadow.",
+      "If the Windows memory service drags WMI into a loop that keeps a core busy, Vasistas restarts it on its own (checked on AC power only).",
+      "On battery, Windows stays on a reasonable number of cores even when it started in Performance mode."
+    ]
+  },
   "0.10.0": {
     "fr": [
       "Windows consomme moins : 4 cœurs par défaut en mode Équilibré au lieu de 8 (8 et plus restent disponibles en mode Performances), sans lecteur CD des pilotes ni tablette USB une fois Windows installé.",

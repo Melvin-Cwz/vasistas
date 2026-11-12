@@ -119,7 +119,8 @@ class AppsPage(Section):
             self.menu_list.append(Gtk.Label(label=_("Aucune application Windows n'est affichée dans le menu "
                                                     "Applications. Ajoutez des applications depuis la section "
                                                     "« Ajouter au menu » ci-dessous."),
-                                            margin_top=12, margin_bottom=12))
+                                            margin_top=12, margin_bottom=12, wrap=True,
+                                            justify=Gtk.Justification.CENTER))
         for cat, title in guestapps.CATEGORIES.items():
             items = [a for a in shown if a["category"] == cat and a not in in_menu]
             if not items:

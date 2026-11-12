@@ -164,11 +164,22 @@ class HomePage(Gtk.Box):
                 self.wire(item, fn, more.popdown)
                 pop.append(item)
             self.buttons.append(more)
+        if p == "ready":
+            desk = Gtk.Button(label=_("Afficher le bureau de Windows"))
+            desk.set_tooltip_text(_("Tout le bureau de Windows dans une fenêtre, avec la souris et le clavier"))
+            desk.connect("clicked", lambda *_a: threading.Thread(target=self.show_desktop, daemon=True).start())
+            self.buttons.append(desk)
         if primary:
             btn = Gtk.Button(label=primary[0])
             btn.add_css_class(Granite.STYLE_CLASS_SUGGESTED_ACTION)
             self.wire(btn, primary[1])
             self.buttons.append(btn)
+
+    def show_desktop(self):
+        try:
+            winctl.show_desktop()
+        except (OSError, RuntimeError) as e:
+            GLib.idle_add(self.win.notify, _("Échec : {error}", error=e))
 
     def wire(self, btn, fn, before=None):
         def run(_b):

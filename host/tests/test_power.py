@@ -168,3 +168,10 @@ def test_vsync_off_on_battery_profile():
     assert power.vsync_mode({"vsync": 7}, "battery") == 0
     assert power.vsync_mode({"vsync": 7}, "balanced") == 7
     assert power.vsync_mode({"vsync": 5}) == power.VSYNC_DEFAULT
+
+
+def test_pin_width():
+    assert power.pin_width(4, None) == 4
+    assert power.pin_width(4, 4) == 4
+    assert power.pin_width(4, 12) == power.MAX_PIN_CPUS
+    assert power.pin_width(4, 6) == 6
